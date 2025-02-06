@@ -116,7 +116,7 @@ MODE = 1    #0=Acquire Data / 1=Display data
 if __name__ == "__main__":
     # Get Dataset
     if MODE == 0:
-        north, south, east, west = postcode_to_area('FK17 8FD', 3, 3)
+        north, south, east, west = postcode_to_area('G1 1RX', 3, 3)
         ds = download_dataset(north, south, east, west, BANDS,MAX_CLOUD_COVER,"./data/data.nc")
     else:
         # Load data
