@@ -1,93 +1,105 @@
-# Import Tensorflow, keras, scikit-learn, matplotlib - latest versions
-# Python3.12
-# Download eurosat dataset - change filepath line 33
-try:
-    import numpy as np
-    import os
-    import gc
-    import tensorflow
-    from tensorflow.keras.utils import to_categorical
-    from tensorflow.keras.models import Sequential
-    from tensorflow.keras.layers import (
-        Conv2D,
-        MaxPooling2D,
-        Dense,
-        Flatten,
-        Dropout,
-    )
-    from tensorflow.keras.optimizers import Adam
-    from sklearn.model_selection import train_test_split
-    from tensorflow.keras import backend as krs
-    from PIL import Image
-    from sklearn.preprocessing import LabelEncoder
-    import matplotlib.pyplot as plt
+import numpy as np
+import os
+import gc
+import rasterio
+import tensorflow as tf
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import (
+    Conv2D,
+    MaxPooling2D,
+    Dense,
+    Flatten,
+    Dropout,
+)
+from tensorflow.keras.optimizers import Adam
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+import matplotlib.pyplot as plt
+import random
 
-    print("All modules imported successfully.")
-except ImportError as e:
-    print(f"An error occurred: {e}")
+print("All modules imported successfully.")
 
-
-# Parameters
+# Set parameters
 np.random.seed(1)
 optimizer_loss_fun = "categorical_crossentropy"
 optimizer_algorithm = Adam(learning_rate=0.001)
-number_epoch = 100
-batch_length = 20
+number_epoch = 50  # Reduced epochs to save training time
+batch_length = 32  # Increased batch size for faster training
 show_inter_results = 1
 
-# Define data path
-data_dir = "EuroSAT/EuroSAT_RGB"  # Update to the correct path
-img_size = (256, 256)  # Resize images to 256x256 if needed
+# Define dataset path
+data_dir = "C:/Users/Chris/Desktop/EuroSAT/EuroSAT_MS"
+img_size = (256, 256)
+max_images_per_class = 50  # Limit dataset size (Adjust as needed)
 
-# Load images and labels
+# Load images and labels (Subset Selection)
 print("Starting to load images and labels...")
-class_names = sorted(os.listdir(data_dir))  # Get all class folder names
+class_names = sorted(os.listdir(data_dir))
 data = []
 labels = []
 
-# Loop through each class folder
-for class_index, class_name in enumerate(class_names):
+# Load a subset of images per class
+for class_name in class_names:
     class_path = os.path.join(data_dir, class_name)
     if os.path.isdir(class_path):
-        print(f"Loading images for class '{class_name}'...")
-        for img_file in os.listdir(class_path):
+        img_files = os.listdir(class_path)
+
+        # Select a random subset of images (Limit per class)
+        selected_files = random.sample(
+            img_files, min(len(img_files), max_images_per_class)
+        )
+
+        print(
+            f"Loading {len(selected_files)} images for class '{class_name}'..."
+        )
+
+        for img_file in selected_files:
             img_path = os.path.join(class_path, img_file)
             try:
-                img = Image.open(img_path).convert(
-                    "RGB"
-                )  # Load image and convert to RGB
-                img = img.resize(img_size)  # Resize image to target dimensions
-                data.append(np.array(img))
+                with rasterio.open(img_path) as img:
+                    image_array = img.read()
+                    image_array = np.transpose(
+                        image_array, (1, 2, 0)
+                    )  # Convert to (height, width, bands)
+
+                if image_array.shape[:2] != img_size:
+                    image_array = tf.image.resize(
+                        image_array, img_size
+                    ).numpy()
+
+                data.append(image_array)
                 labels.append(class_name)
             except Exception as e:
                 print(f"Could not process image {img_path}: {e}")
-        print(
-            f"Finished loading {len(os.listdir(class_path))} images for class '{class_name}'."
-        )
 
-# Convert data and labels to numpy arrays
+print("Finished loading images.")
+
+# Convert to numpy arrays
 print("Converting data and labels to numpy arrays...")
-data = np.array(data)
+data = np.array(data, dtype=np.float32)
 labels = np.array(labels)
 
-# Normalize data
+# Normalize image data
 print("Normalizing image data...")
-data = data.astype("float32") / 255.0
+data = data / np.max(data)
 
-# Encode labels as integers, then one-hot encode
+# Encode labels
 print("Encoding labels...")
 label_encoder = LabelEncoder()
 labels = label_encoder.fit_transform(labels)
 y = to_categorical(labels)
+
+print(f"Dataset size after sampling: {data.shape[0]} images")
 print(f"Data shape: {data.shape}, Labels shape: {y.shape}")
 
-# Single train-test split
+# Train-test split
 print("Splitting data into training and testing sets...")
 X_train, X_test, y_train, y_test = train_test_split(
     data, y, test_size=0.2, random_state=1, stratify=labels
 )
 
-# Build the model
+# Build model
 print("Building the model...")
 model = Sequential(
     [
@@ -95,7 +107,7 @@ model = Sequential(
             32,
             (3, 3),
             activation="relu",
-            input_shape=(img_size[0], img_size[1], 3),
+            input_shape=(img_size[0], img_size[1], 13),
         ),
         MaxPooling2D((2, 2)),
         Conv2D(64, (3, 3), activation="relu"),
@@ -115,7 +127,7 @@ model.compile(
     metrics=["accuracy"],
 )
 
-# Train the model and save history
+# Train model
 print("Training the model...")
 history = model.fit(
     X_train,
@@ -126,12 +138,12 @@ history = model.fit(
     validation_data=(X_test, y_test),
 )
 
-# Evaluate the model
+# Evaluate model
 print("Evaluating the model...")
 scores = model.evaluate(X_test, y_test, verbose=1)
 print(f"Test accuracy: {scores[1] * 100:.2f}%")
 
-# Plot the loss and accuracy curves
+# Plot results
 print("Plotting the loss and accuracy curves...")
 plt.figure(figsize=(12, 5))
 
