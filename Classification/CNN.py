@@ -29,8 +29,8 @@ print("Enabled Mixed Precision Training")
 # Parameters
 np.random.seed(1)
 optimizer_algorithm = Adam(learning_rate=0.0001)
-number_epoch = 10
-batch_length = 20
+number_epoch = 15
+batch_length = 16
 show_inter_results = 1
 num_rows = 64
 num_cols = 64
@@ -91,12 +91,15 @@ print("Building the CNN model...")
 model = Sequential([
     Conv2D(32, (3, 3), activation='relu', input_shape=(num_rows, num_cols, 3)),
     MaxPooling2D((2, 2)),
+    BatchNormalization(),
 
     Conv2D(64, (3, 3), activation='relu'),
     MaxPooling2D((2, 2)),
+    BatchNormalization(),
 
     Conv2D(128, (3, 3), activation='relu'),
     MaxPooling2D((2, 2)),
+    BatchNormalization(),
 
     Flatten(),
     Dense(256, activation='relu'),
