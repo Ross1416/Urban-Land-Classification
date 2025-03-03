@@ -30,7 +30,7 @@ print("Enabled Mixed Precision Training")
 
 # Parameters
 np.random.seed(1)
-optimizer_algorithm = Adam(learning_rate=0.00005)
+optimizer_algorithm = Adam(learning_rate=0.00003)
 number_epoch = 100
 batch_length = 16
 show_inter_results = 1
@@ -133,6 +133,10 @@ history = model.fit(train_dataset, epochs=number_epoch, verbose=show_inter_resul
 
 training_time = time.time() - start_train_time
 print(f"Training completed in {training_time:.2f} seconds.")
+
+print("Saving the trained model...")
+model.save("eurosat_model.keras")
+print("Model saved successfully.")
 
 # Evaluate Model
 print("Evaluating model on test dataset...")
