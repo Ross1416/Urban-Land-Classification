@@ -9,6 +9,7 @@ from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dense, Flatten, Dropou
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.mixed_precision import set_global_policy
+from tensorflow.keras.regularizers import l1_l2
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import confusion_matrix, classification_report
@@ -29,11 +30,17 @@ print("Enabled Mixed Precision Training")
 # Parameters
 np.random.seed(1)
 optimizer_algorithm = Adam(learning_rate=0.0001)
-number_epoch = 15
+number_epoch = 25
 batch_length = 16
 show_inter_results = 1
 num_rows = 64
 num_cols = 64
+
+# Regularization Parameters
+use_l1 = True  # Set to True to enable L1 regularization
+use_l2 = True  # Set to True to enable L2 regularization
+l1_reg = 0.001  # L1 regularization strength
+l2_reg = 0.001  # L2 regularization strength
 
 # Define Data Path
 data_dir = '/Users/andrewferguson/EuroSAT/EuroSAT_RGB'  # Update this path if needed
@@ -85,19 +92,20 @@ test_dataset = build_dataset(X_test_paths, y_test, batch_length)
 data_loading_time = time.time() - start_data_time
 print(f"Data loading completed in {data_loading_time:.2f} seconds.")
 
-
 # Build Model
 print("Building the CNN model...")
+regularizer = l1_l2(l1=l1_reg if use_l1 else 0.0, l2=l2_reg if use_l2 else 0.0)
+
 model = Sequential([
-    Conv2D(32, (3, 3), activation='relu', input_shape=(num_rows, num_cols, 3)),
+    Conv2D(32, (3, 3), activation='relu', input_shape=(num_rows, num_cols, 3), kernel_regularizer=regularizer),
     MaxPooling2D((2, 2)),
     BatchNormalization(),
 
-    Conv2D(64, (3, 3), activation='relu'),
+    Conv2D(64, (3, 3), activation='relu', kernel_regularizer=regularizer),
     MaxPooling2D((2, 2)),
     BatchNormalization(),
 
-    Conv2D(128, (3, 3), activation='relu'),
+    Conv2D(128, (3, 3), activation='relu', kernel_regularizer=regularizer),
     MaxPooling2D((2, 2)),
     BatchNormalization(),
 
@@ -118,7 +126,7 @@ print("Model compiled")
 print("🚀 Starting training...")
 start_train_time = time.time()
 
-history = model.fit(train_dataset, epochs=number_epoch, verbose=show_inter_results)
+history = model.fit(train_dataset, epochs=number_epoch, verbose=show_inter_results, validation_data=test_dataset)
 
 training_time = time.time() - start_train_time
 print(f"Training completed in {training_time:.2f} seconds.")
@@ -133,17 +141,14 @@ print(f"Test accuracy: {scores[1] * 100: .2f}%")
 print(f"Evaluation completed in {eval_time: .2f} seconds.")
 
 # Generate Predictions for Confusion Matrix
-# Extract true labels from test_dataset
 y_true = []
 X_test_images = []
 
 for image_batch, label_batch in test_dataset:
     y_true.extend(np.argmax(label_batch.numpy(), axis=1))  # Convert one-hot to class indices
 
-# Convert lists to numpy arrays
 y_true = np.array(y_true)
 
-# Generate predictions from the test dataset
 y_pred_probs = model.predict(test_dataset)  # Get probability outputs
 y_pred = np.argmax(y_pred_probs, axis=1)  # Convert probabilities to class predictions
 
@@ -164,4 +169,3 @@ plt.show()
 # Print Classification Report
 print("Classification Report:")
 print(classification_report(y_true, y_pred, target_names=class_names))
-
