@@ -5,11 +5,12 @@ import time
 import tensorflow as tf
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dense, Flatten, Dropout, BatchNormalization
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dense, Flatten, Dropout, BatchNormalization, GlobalAveragePooling2D
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.mixed_precision import set_global_policy
 from tensorflow.keras.regularizers import l1_l2
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import confusion_matrix, classification_report
@@ -29,8 +30,8 @@ print("Enabled Mixed Precision Training")
 
 # Parameters
 np.random.seed(1)
-optimizer_algorithm = Adam(learning_rate=0.0001)
-number_epoch = 25
+optimizer_algorithm = Adam(learning_rate=0.00005)
+number_epoch = 100
 batch_length = 16
 show_inter_results = 1
 num_rows = 64
@@ -39,7 +40,7 @@ num_cols = 64
 # Regularization Parameters
 use_l1 = True  # Set to True to enable L1 regularization
 use_l2 = True  # Set to True to enable L2 regularization
-l1_reg = 0.001  # L1 regularization strength
+l1_reg = 0.0002  # L1 regularization strength
 l2_reg = 0.001  # L2 regularization strength
 
 # Define Data Path
@@ -71,7 +72,9 @@ print("Splitting data into training and testing sets...")
 X_train_paths, X_test_paths, y_train, y_test = train_test_split(image_paths, labels, test_size=0.2, random_state=1, stratify=labels)
 print(f"Training set: {len(X_train_paths)} images, Testing set: {len(X_test_paths)} images")
 
-# Data Loading with tf.data Pipeline
+# Learning Rate Scheduler
+lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, verbose=1, min_lr=1e-6)
+
 def parse_image(img_path, label):
     img = tf.io.read_file(img_path)
     img = tf.image.decode_jpeg(img, channels=3)
@@ -109,7 +112,7 @@ model = Sequential([
     MaxPooling2D((2, 2)),
     BatchNormalization(),
 
-    Flatten(),
+    GlobalAveragePooling2D(),
     Dense(256, activation='relu'),
     Dropout(0.5),
     Dense(len(class_names), activation='softmax')
