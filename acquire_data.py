@@ -17,8 +17,8 @@ from matplotlib.figure import Figure
 
 # ---------------- Global Variables ----------------
 BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "B11", "B12"]
-MAX_CLOUD_COVER = 20
-MODE = 1  # 0 = Acquire Data, 1 = Display Data
+MAX_CLOUD_COVER = 30
+MODE = 1  # 0 = Acquire Data, 1 = Visualise Data, 2 = Filter / Combine Data
 
 # ---------------- Helper Functions ----------------
 
@@ -58,8 +58,7 @@ def postcode_to_area(postcode, height, width):
     return north, south, east, west
 
 def normalise_band(band):
-    band = band - np.nanmin(band)
-    band = band / np.nanmax(band)
+    band = band / 10000
     band = np.nan_to_num(band, nan=0)
     return (band * 255).astype(np.uint8)
 
@@ -146,42 +145,35 @@ class SentinelViewer(QWidget):
         elif self.current_frame >= self.num_frames:
             self.current_frame = 0
 
-        # Get current frame date
         date_str = str(self.dates[self.current_frame])
-
-        # Update frame info label
         self.frame_label.setText(f"Sentinel-2 RGB Image - Frame {self.current_frame + 1}/{self.num_frames} - Date: {date_str}")
 
-        # Extract bands for current frame
         red = self.dataset["B04"].isel(t=self.current_frame).values
         green = self.dataset["B03"].isel(t=self.current_frame).values
         blue = self.dataset["B02"].isel(t=self.current_frame).values
 
-        # Normalise each band to 0-255
         red = normalise_band(red)
         green = normalise_band(green)
         blue = normalise_band(blue)
 
-        # Create RGB image
         rgb_image = np.stack([red, green, blue], axis=-1)
 
-        # Convert numpy image (RGB) into QImage for display
         height, width, _ = rgb_image.shape
         q_image = QImage(rgb_image.data, width, height, 3 * width, QImage.Format_RGB888)
         pixmap = QPixmap.fromImage(q_image)
         pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio)
         self.image_label.setPixmap(pixmap)
 
-        # Compute histograms
-        image_gray = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)
-        hist_gray = cv2.calcHist([image_gray], [0], None, [256], [0, 256])
+        gray_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)
+        hist_gray = cv2.calcHist([gray_image], [0], None, [256], [0, 256])
 
-        # Clear and update histogram plot
         self.hist_ax.clear()
-        self.hist_ax.plot(hist_gray, color='black', label="Gray")
+        self.hist_ax.hist(red.ravel(), bins=256, color='red', alpha=0.5, label='Red')
+        self.hist_ax.hist(green.ravel(), bins=256, color='green', alpha=0.5, label='Green')
+        self.hist_ax.hist(blue.ravel(), bins=256, color='blue', alpha=0.5, label='Blue')
+        self.hist_ax.plot(hist_gray, color='black', linewidth=2, label='Gray')
         self.hist_ax.set_title(f"Histogram - Frame {self.current_frame + 1}/{self.num_frames} - {date_str}")
-        self.hist_ax.set_xlim([-10, 266])
-        self.hist_ax.grid(True)
+        self.hist_ax.set_xlim([-10, 265])
         self.hist_ax.legend()
         self.canvas.draw()
 
@@ -199,29 +191,47 @@ if __name__ == "__main__":
     location = 'Glasgow'
     width = 3
     height = 3
-    years = range(2016, 2018)
+    years = range(2016, 2020+1)
 
     if MODE == 0:
         north, south, east, west = postcode_to_area(location, height, width)
         for year in years:
-            saveLocation = f"./data/{location}_{height}x{width}_Year{year}.nc"
+            saveLocation = f"./data/{location}_{height}x{width}_{year}.nc"
             print(saveLocation)
             download_dataset(north, south, east, west, BANDS, MAX_CLOUD_COVER, saveLocation, year)
-    else:
+    elif MODE == 1:
         datasets = []
         for year in years:
-            file_path =  f"./data/{location}_{height}x{width}_Year{year}.nc"
+            file_path =  f"./data/{location}_{height}x{width}_{year}.nc"
             try:
                 ds = xr.load_dataset(file_path)
                 datasets.append(ds)
             except FileNotFoundError:
-                print(f"Warning: Data for {year} not found, skipping...")
+                print(f"Missing {year} ")
 
         if datasets:
-            combined_dataset = xr.concat(datasets, dim="t")  # Merge along time axis
+            combineDataset = xr.concat(datasets, dim="t")
             app = QApplication(sys.argv)
-            viewer = SentinelViewer(combined_dataset)
+            viewer = SentinelViewer(combineDataset)
             viewer.show()
             sys.exit(app.exec_())
         else:
-            print("No valid datasets found. Exiting.")
+            print("No valid data")
+    else:
+        # Combine Dataset
+        datasets = []
+        for year in years:
+            file_path = f"./data/{location}_{height}x{width}_{year}.nc"
+            try:
+                ds = xr.load_dataset(file_path)
+                datasets.append(ds)
+            except FileNotFoundError:
+                print(f"Missing {year} ")
+
+        print("Last load: ")
+        print(ds)
+
+        print("\n\nAll datsets: ")
+        print(datasets)
+
+
