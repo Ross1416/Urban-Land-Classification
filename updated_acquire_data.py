@@ -5,18 +5,8 @@ import numpy as np
 import openeo
 import xarray as xr
 import matplotlib.pyplot as plt
-import cv2
 import math
 import requests
-
-from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QVBoxLayout, QPushButton,
-                             QHBoxLayout)
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QImage, QPixmap
-
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
-from numpy.ma.core import max_val
 
 # ---------------- Global Variables ----------------
 BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "B11", "B12"]
@@ -94,7 +84,7 @@ if __name__ == "__main__":
     height = 3
     years = range(2016, 2020+1)
 
-    mode = 1
+    mode = 1    # 0 = Download Datasets, 1 = Filter to get one image from each dataset
 
     if mode == 0:
         north, south, east, west = postcode_to_area(location, height, width)
