@@ -44,6 +44,15 @@ class App(QMainWindow):
         layout.addWidget(options_container)
         return layout
 
+    def create_right_panel(self):
+        layout = QVBoxLayout()
+        legend = self.create_legend_panel()
+        dist = self.create_distribution_panel()
+
+        layout.addWidget(legend)
+        layout.addWidget(dist)
+        return layout
+
     def create_selections_panel(self):
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignTop)
@@ -52,8 +61,9 @@ class App(QMainWindow):
         dropdown.addItems(["Option 1", "Option 2", "Option 3"])
         layout.addWidget(dropdown)
 
-        button = QPushButton("Load")
-        layout.addWidget(button)
+        self.button = QPushButton("Load")
+        self.button.clicked.connect(self.load_btn_clicked)
+        layout.addWidget(self.button)
 
         container = QGroupBox("Selection")
         container.setLayout(layout)
@@ -95,7 +105,9 @@ class App(QMainWindow):
         slider_layout.setAlignment(Qt.AlignCenter)
 
         self.toggle_overlay_checkbox = QCheckBox("Toggle Overlay")
-        self.toggle_change_checkbox = QCheckBox("Toggle Overlay")
+        self.toggle_overlay_checkbox.stateChanged.connect(self.toggle_overlay)
+        self.toggle_change_checkbox = QCheckBox("Toggle Change")
+        self.toggle_change_checkbox.stateChanged.connect(self.toggle_change)
 
         options_layout.addWidget(self.toggle_overlay_checkbox)
         options_layout.addWidget(self.toggle_change_checkbox)
@@ -104,6 +116,7 @@ class App(QMainWindow):
         self.slider.setTickPosition(QSlider.TicksBelow)
         self.slider.setMinimum(0)
         self.slider.setMaximum(10)
+        self.slider.valueChanged.connect(self.slider_value_changed)
 
         self.start_date_label = QLabel("2016")
         self.end_date_label = QLabel("2021")
@@ -117,15 +130,6 @@ class App(QMainWindow):
         container = QGroupBox("Slider")
         container.setLayout(layout)
         return container
-
-    def create_right_panel(self):
-        layout = QVBoxLayout()
-        legend = self.create_legend_panel()
-        dist = self.create_distribution_panel()
-
-        layout.addWidget(legend)
-        layout.addWidget(dist)
-        return layout
 
     def create_legend_panel(self):
         layout = QVBoxLayout()
@@ -147,6 +151,24 @@ class App(QMainWindow):
         self.ax = figure.add_subplot(111)
         self.ax.bar(["A", "B", "C"], [30, 50, 70])
         layout.addWidget(self.canvas)
+
+    def load_btn_clicked(self):
+        print("Load clicked")
+
+    def slider_value_changed(self):
+        print("Slider value changed")
+
+    def toggle_overlay(self):
+        if self.toggle_overlay_checkbox.isChecked():
+            print("Checked toggle overlay")
+        else:
+            print("Unchecked toggle overlay")
+
+    def toggle_change(self):
+        if self.toggle_change_checkbox.isChecked():
+            print("Checked toggle change")
+        else:
+            print("Unchecked toggle change")
 
 
 if __name__ == "__main__":
