@@ -5,6 +5,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import sys
 import os
+import numpy as np
 
 class App(QMainWindow):
     def __init__(self):
@@ -14,18 +15,27 @@ class App(QMainWindow):
         self.setGeometry(100, 100, 1200, 700)
 
         # Test overlay colours
+        # self.class_colours = {
+        #     "Trees": QColor(0, 255, 0, 100),  # Green (0)
+        #     "Farm Land": QColor(255, 255, 0, 100),  # Yellow (1)
+        #     "Residential": QColor(255, 0, 0, 100),  # Red (2)
+        #     "Industrial": QColor(128, 128, 128, 100),  # Gray (3)
+        #     "Water": QColor(0, 0, 255, 100)  # Blue (4)
+        # }
+
+        # Test overlay colours
         self.class_colours = {
-            "Trees": QColor(0, 255, 0, 100),  # Green (0)
-            "Farm Land": QColor(255, 255, 0, 100),  # Yellow (1)
-            "Residential": QColor(255, 0, 0, 100),  # Red (2)
-            "Industrial": QColor(128, 128, 128, 100),  # Gray (3)
-            "Water": QColor(0, 0, 255, 100)  # Blue (4)
+            "Trees": "Green",  # Green (0)
+            "Farm Land": "Yellow",  # Yellow (1)
+            "Residential": "Red",  # Red (2)
+            "Industrial": "Gray",  # Gray (3)
+            "Water": "Blue"  # Blue (4)
         }
 
         self.class_map = [
             [0, 1, 2, 3],
-            [0, 1, 2, 3],
-            [0, 1, 2, 3],
+            [2, 4, 2, 3],
+            [0, 2, 4, 3],
         ]
 
         # Set main layout
@@ -36,7 +46,7 @@ class App(QMainWindow):
 
         main_layout.addLayout(left_panel, 2)
         main_layout.addLayout(centre_panel, 5)
-        main_layout.addLayout(right_panel, 2)
+        main_layout.addLayout(right_panel, 3)
 
         container = QWidget()
         container.setLayout(main_layout)
@@ -46,6 +56,7 @@ class App(QMainWindow):
         self.create_data_folder()
         self.update_data_selection()
         self.create_overlay()
+        self.update_distribution_graph()
 
     def create_centre_layout(self):
         image_container = self.create_image_panel()
@@ -158,7 +169,9 @@ class App(QMainWindow):
         for i in range(len(self.class_colours)):
             layout.addWidget(QLabel(list(self.class_colours.keys())[i]),i,1)
             pixmap = QPixmap(64,64)
-            pixmap.fill(list(self.class_colours.values())[i])
+            colour = QColor(list(self.class_colours.values())[i])
+            # colour.setAlpha(100)
+            pixmap.fill(colour)
             label = QLabel()
             label.setPixmap(pixmap)
             layout.addWidget(label,i,0)
@@ -174,17 +187,44 @@ class App(QMainWindow):
         container.setLayout(layout)
         return container
 
+    def update_distribution_graph(self):
+        self.calculate_distribution()
+        self.ax.clear()
+        self.ax.barh(list(self.class_colours.keys()), self.percentages,
+                     color=list(self.class_colours.values()))
+        self.ax.set_xlabel("Percentage (%)")
+        self.ax.set_ylabel("Classes")
+        self.ax.set_title("Distribution of Classes")
+        self.canvas.draw()
+
+    def calculate_distribution(self):
+        self.percentages = np.zeros(len(self.class_colours))
+        size = np.array(self.class_map).shape[0]*np.array(self.class_map).shape[1]
+        for i in range(len(self.class_map)):
+            for j in range(len(self.class_map[i])):
+                self.percentages[self.class_map[i][j]] += 1/size
+
+    def get_class_names(self):
+        return list(self.class_colours.keys())
+
+    def get_class_values(self):
+        return list(self.class_colours.values())
+
     def create_bar_chart(self, layout):
         figure = Figure()
         self.canvas = FigureCanvas(figure)
         self.ax = figure.add_subplot(111)
-        self.ax.barh(["A", "B", "C"], [30, 50, 70])
+        self.ax.barh(list(self.class_colours.keys()), np.zeros(len(self.class_colours)),color=list(self.class_colours.values()))
+        self.ax.set_xlabel("Percentage (%)")
+        self.ax.set_ylabel("Classes")
+        self.ax.set_title("Distribution of Classes")
         layout.addWidget(self.canvas)
 
     def load_btn_clicked(self):
         # Update image
         self.create_overlay()
         self.update_data_selection()
+        self.update_distribution_graph([30,20,10,80,20])
         print("Load clicked")
 
     def slider_value_changed(self):
@@ -213,9 +253,6 @@ class App(QMainWindow):
         self.start_date_label = QLabel(start_date)
         self.end_date_label = QLabel(end_date)
 
-    def update_distribution_graph(self):
-        pass
-
     def update_image(self,image):
         self.pixmap = QPixmap(image)
         self.image_label.setPixmap(self.pixmap)
@@ -232,7 +269,8 @@ class App(QMainWindow):
 
         for i in range(len(self.class_map)):
             for j in range(len(self.class_map[i])):
-                colour = list(self.class_colours.values())[self.class_map[i][j]]
+                colour = QColor(list(self.class_colours.values())[self.class_map[i][j]])
+                colour.setAlpha(100)
                 painter.fillRect(j * BLOCK_SIZE, i * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, colour)
 
         painter.end()
