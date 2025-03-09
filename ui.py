@@ -13,20 +13,6 @@ class App(QMainWindow):
         self.setWindowTitle("Urban Land Classification")
         self.setGeometry(100, 100, 1200, 700)
 
-        # Set main layout
-        main_layout = QHBoxLayout()
-        left_panel = self.create_left_layout()
-        centre_panel = self.create_centre_layout()
-        right_panel = self.create_right_panel()
-
-        main_layout.addLayout(left_panel, 2)
-        main_layout.addLayout(centre_panel, 5)
-        main_layout.addLayout(right_panel, 2)
-
-        container = QWidget()
-        container.setLayout(main_layout)
-        self.setCentralWidget(container)
-
         # Test overlay colours
         self.class_colours = {
             "Trees": QColor(0, 255, 0, 100),  # Green (0)
@@ -41,6 +27,20 @@ class App(QMainWindow):
             [0, 1, 2, 3],
             [0, 1, 2, 3],
         ]
+
+        # Set main layout
+        main_layout = QHBoxLayout()
+        left_panel = self.create_left_layout()
+        centre_panel = self.create_centre_layout()
+        right_panel = self.create_right_panel()
+
+        main_layout.addLayout(left_panel, 2)
+        main_layout.addLayout(centre_panel, 5)
+        main_layout.addLayout(right_panel, 2)
+
+        container = QWidget()
+        container.setLayout(main_layout)
+        self.setCentralWidget(container)
 
         # Update
         self.create_data_folder()
@@ -153,7 +153,15 @@ class App(QMainWindow):
         return container
 
     def create_legend_panel(self):
-        layout = QVBoxLayout()
+        layout = QGridLayout()
+
+        for i in range(len(self.class_colours)):
+            layout.addWidget(QLabel(list(self.class_colours.keys())[i]),i,1)
+            pixmap = QPixmap(64,64)
+            pixmap.fill(list(self.class_colours.values())[i])
+            label = QLabel()
+            label.setPixmap(pixmap)
+            layout.addWidget(label,i,0)
 
         container = QGroupBox("Legend")
         container.setLayout(layout)
