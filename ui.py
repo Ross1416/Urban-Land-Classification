@@ -4,6 +4,7 @@ from PyQt5.QtGui import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import sys
+import os
 
 class App(QMainWindow):
     def __init__(self):
@@ -25,6 +26,26 @@ class App(QMainWindow):
         container = QWidget()
         container.setLayout(main_layout)
         self.setCentralWidget(container)
+
+        # Test overlay colours
+        self.class_colours = {
+            "Trees": QColor(0, 255, 0, 100),  # Green (0)
+            "Farm Land": QColor(255, 255, 0, 100),  # Yellow (1)
+            "Residential": QColor(255, 0, 0, 100),  # Red (2)
+            "Industrial": QColor(128, 128, 128, 100),  # Gray (3)
+            "Water": QColor(0, 0, 255, 100)  # Blue (4)
+        }
+
+        self.class_map = [
+            [0, 1, 2, 3],
+            [0, 1, 2, 3],
+            [0, 1, 2, 3],
+        ]
+
+        # Update
+        self.create_data_folder()
+        self.update_data_selection()
+        self.create_overlay()
 
     def create_centre_layout(self):
         image_container = self.create_image_panel()
@@ -57,9 +78,9 @@ class App(QMainWindow):
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignTop)
 
-        dropdown = QComboBox()
-        dropdown.addItems(["Option 1", "Option 2", "Option 3"])
-        layout.addWidget(dropdown)
+        self.selection_dropdown = QComboBox()
+        self.selection_dropdown.addItems(["Option 1", "Option 2", "Option 3"])
+        layout.addWidget(self.selection_dropdown)
 
         self.button = QPushButton("Load")
         self.button.clicked.connect(self.load_btn_clicked)
@@ -149,10 +170,13 @@ class App(QMainWindow):
         figure = Figure()
         self.canvas = FigureCanvas(figure)
         self.ax = figure.add_subplot(111)
-        self.ax.bar(["A", "B", "C"], [30, 50, 70])
+        self.ax.barh(["A", "B", "C"], [30, 50, 70])
         layout.addWidget(self.canvas)
 
     def load_btn_clicked(self):
+        # Update image
+        self.create_overlay()
+        self.update_data_selection()
         print("Load clicked")
 
     def slider_value_changed(self):
@@ -160,9 +184,9 @@ class App(QMainWindow):
 
     def toggle_overlay(self):
         if self.toggle_overlay_checkbox.isChecked():
-            print("Checked toggle overlay")
+            self.image_label.setPixmap(self.overlay_pixmap)
         else:
-            print("Unchecked toggle overlay")
+            self.image_label.setPixmap(self.pixmap)
 
     def toggle_change(self):
         if self.toggle_change_checkbox.isChecked():
@@ -170,7 +194,45 @@ class App(QMainWindow):
         else:
             print("Unchecked toggle change")
 
+    def update_data_selection(self):
+        files = [f for f in os.listdir(DATA_PATH) if f.endswith(DATA_EXTENSION)]
+        self.selection_dropdown.clear()
+        self.selection_dropdown.addItems(files)
 
+    def update_scroll_bar(self,start_date,end_date,num_years):
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(num_years)
+        self.start_date_label = QLabel(start_date)
+        self.end_date_label = QLabel(end_date)
+
+    def update_distribution_graph(self):
+        pass
+
+    def update_image(self,image):
+        self.pixmap = QPixmap(image)
+        self.image_label.setPixmap(self.pixmap)
+
+    def create_data_folder(self):
+        if not os.path.exists(DATA_PATH):
+            os.makedirs(DATA_PATH)
+            print(f"Folder '{DATA_PATH}' created.")
+
+    def create_overlay(self):
+        """Draws the overlay on the image."""
+        self.overlay_pixmap = self.pixmap.copy()
+        painter = QPainter(self.overlay_pixmap)
+
+        for i in range(len(self.class_map)):
+            for j in range(len(self.class_map[i])):
+                colour = list(self.class_colours.values())[self.class_map[i][j]]
+                painter.fillRect(j * BLOCK_SIZE, i * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, colour)
+
+        painter.end()
+
+
+DATA_PATH = "./data/"
+DATA_EXTENSION = ".nc"
+BLOCK_SIZE = 64
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = App()
