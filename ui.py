@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import *
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QDate
 from PyQt5.QtGui import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -93,25 +93,47 @@ class App(QMainWindow):
         self.selection_dropdown.addItems(["Option 1", "Option 2", "Option 3"])
         layout.addWidget(self.selection_dropdown)
 
-        self.button = QPushButton("Load")
-        self.button.clicked.connect(self.load_btn_clicked)
-        layout.addWidget(self.button)
+        self.load_button = QPushButton("Load")
+        self.load_button.clicked.connect(self.load_btn_clicked)
+        layout.addWidget(self.load_button)
 
         container = QGroupBox("Selection")
         container.setLayout(layout)
         return container
 
+
     def create_downloads_panel(self):
+        # Create the layout
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignTop)
 
-        dropdown = QComboBox()
-        dropdown.addItems(["Option 1", "Option 2", "Option 3"])
-        layout.addWidget(dropdown)
+        # Location input
+        location_label = QLabel("Location:")
+        self.location_input = QLineEdit()
 
-        button = QPushButton("Load")
-        layout.addWidget(button)
+        # Date range input (start and end dates)
+        start_date_label = QLabel("Start Date:")
+        self.start_date_input = QDateEdit()
+        self.start_date_input.setDate(QDate.currentDate())  # Default to today's date
 
+        end_date_label = QLabel("End Date:")
+        self.end_date_input = QDateEdit()
+        self.end_date_input.setDate(QDate.currentDate())  # Default to today's date
+
+        # Download button
+        self.download_button = QPushButton("Download")
+        self.download_button.clicked.connect(self.download_button_clicked)
+
+        # Add widgets to the main layout
+        layout.addWidget(location_label)
+        layout.addWidget(self.location_input)
+        layout.addWidget(start_date_label)
+        layout.addWidget(self.start_date_input)
+        layout.addWidget(end_date_label)
+        layout.addWidget(self.end_date_input)
+        layout.addWidget(self.download_button)
+
+        # Set the layout for the container widget
         container = QGroupBox("Downloads")
         container.setLayout(layout)
         return container
@@ -274,6 +296,9 @@ class App(QMainWindow):
                 painter.fillRect(j * BLOCK_SIZE, i * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, colour)
 
         painter.end()
+
+    def download_button_clicked(self):
+        print("Download clicked")
 
 
 DATA_PATH = "./data/"
