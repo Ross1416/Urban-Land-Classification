@@ -1,11 +1,51 @@
 from PyQt5.QtWidgets import *
-from PyQt5.QtCore import Qt, QDate
+from PyQt5.QtCore import Qt, QDate, QObject, QThread, pyqtSignal
+
 from PyQt5.QtGui import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import sys
 import os
 import numpy as np
+from updated_acquire_data import *
+import openeo
+import asyncio
+
+
+class DownloadWorker(QObject):
+    finished = pyqtSignal()
+
+    def __init__(self, north, south, east, west, bands, cloud_cover, save_path, year):
+        super().__init__()
+        self.north = north
+        self.south = south
+        self.east = east
+        self.west = west
+        self.bands = bands
+        self.cloud_cover = cloud_cover
+        self.save_path = save_path
+        self.year = year
+
+    def run(self):
+        con = openeo.connect("openeo.dataspace.copernicus.eu")
+        con.authenticate_oidc()
+
+        # Generate time ranges for March of each year from 2014 to 2024
+        temporal_extent = [f"{self.year}-04-01", f"{self.year}-06-28"]
+        print(temporal_extent)
+
+        datacube = con.load_collection(
+            "SENTINEL2_L2A",
+            spatial_extent={"west": self.west, "south": self.south, "east": self.east, "north": self.north},
+            temporal_extent=temporal_extent,
+            bands=self.bands,
+            max_cloud_cover=self.cloud_cover,
+        )
+
+        if self.save_path is not None:
+            datacube.download(self.save_path)
+
+        self.finished.emit()
 
 class App(QMainWindow):
     def __init__(self):
@@ -101,7 +141,6 @@ class App(QMainWindow):
         container.setLayout(layout)
         return container
 
-
     def create_downloads_panel(self):
         # Create the layout
         layout = QVBoxLayout()
@@ -114,11 +153,30 @@ class App(QMainWindow):
         # Date range input (start and end dates)
         start_date_label = QLabel("Start Date:")
         self.start_date_input = QDateEdit()
+        self.start_date_input.setDisplayFormat("yyyy")
+        # self.start_date_input.setCalendarPopup(True)
         self.start_date_input.setDate(QDate.currentDate())  # Default to today's date
+        #TODO: set minimum date to first year with data
 
         end_date_label = QLabel("End Date:")
         self.end_date_input = QDateEdit()
+        self.end_date_input.setDisplayFormat("yyyy")
+        # self.end_date_input.setCalendarPopup(True)
         self.end_date_input.setDate(QDate.currentDate())  # Default to today's date
+        # TODO: set minimum date to first year with data
+
+        # Size
+        width_label = QLabel("Width (km):")
+        self.width_spinbox = QSpinBox()
+        self.width_spinbox.setMinimum(1)  # Set minimum value
+        self.width_spinbox.setMaximum(10)  # Set maximum value
+        self.width_spinbox.setValue(1)  # Set default value
+
+        height_label = QLabel("Height (km):")
+        self.height_spinbox = QSpinBox()
+        self.height_spinbox.setMinimum(1)  # Set minimum value
+        self.height_spinbox.setMaximum(10)  # Set maximum value
+        self.height_spinbox.setValue(1)  # Set default value
 
         # Download button
         self.download_button = QPushButton("Download")
@@ -131,6 +189,10 @@ class App(QMainWindow):
         layout.addWidget(self.start_date_input)
         layout.addWidget(end_date_label)
         layout.addWidget(self.end_date_input)
+        layout.addWidget(width_label)
+        layout.addWidget(self.width_spinbox)
+        layout.addWidget(height_label)
+        layout.addWidget(self.height_spinbox)
         layout.addWidget(self.download_button)
 
         # Set the layout for the container widget
@@ -298,9 +360,38 @@ class App(QMainWindow):
         painter.end()
 
     def download_button_clicked(self):
-        print("Download clicked")
+        print("Downloading...")
+        self.download_button.setEnabled(False)
+        self.download_button.setText("Downloading...")
+        print("button changed")
+        location = self.location_input.text()
+        width = self.width_spinbox.value()
+        height = self.height_spinbox.value()
+        north, south, east, west = postcode_to_area(location, height, width)
+        start_year = self.start_date_input.date().year()
+        end_year = self.end_date_input.date().year()
+        for year in range(start_year,end_year+1):
+            saveLocation = f"./data/{location}_{height}x{width}_{year}.nc"
+            print(saveLocation)
+            # download_dataset(north, south, east, west, BANDS, MAX_CLOUD_COVER, saveLocation, year)
+            self.worker = DownloadWorker(north, south, east, west, BANDS, MAX_CLOUD_COVER, saveLocation, year)
+            self.thread = QThread()
+            self.worker.moveToThread(self.thread)
+            self.thread.started.connect(self.worker.run)
+            self.worker.finished.connect(self.download_finished)
+            self.thread.start()
 
+    def download_finished(self):
+        self.download_button.setEnabled(True)
+        self.download_button.setText("Download")
+        print("Download complete")
+        self.thread.quit()
+        self.thread.wait()
+        self.update_data_selection()
 
+# ---------------- Global Variables ----------------
+BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "B11", "B12"]
+MAX_CLOUD_COVER = 30
 DATA_PATH = "./data/"
 DATA_EXTENSION = ".nc"
 BLOCK_SIZE = 64
