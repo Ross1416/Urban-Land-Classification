@@ -10,6 +10,8 @@ import numpy as np
 from updated_acquire_data import *
 import openeo
 import asyncio
+import xarray as xr
+
 
 
 class DownloadWorker(QObject):
@@ -44,6 +46,68 @@ class DownloadWorker(QObject):
 
         if self.save_path is not None:
             datacube.download(self.save_path)
+
+        self.finished.emit()
+
+class CombineDatasetWorker(QObject):
+    finished = pyqtSignal()
+
+    def __init__(self, location, height, width, start_year, end_year):
+        super().__init__()
+        self.location = location
+        self.height = height
+        self.width = width
+        self.start_year = start_year
+        self.end_year = end_year
+
+    def run(self):
+        # Combine Dataset
+        datasets = []
+        for year in range(self.start_year, self.end_year + 1):
+            file_path = f"./data/{self.location}_{self.height}x{self.width}_{year}.nc"
+            print(file_path)
+            try:
+                ds = xr.load_dataset(file_path)
+                # Convert xarray DataSet to a (bands, t, x, y) DataArray
+                data = ds[["B04", "B03", "B02"]].to_array(dim="bands")
+
+                for i in range(0, data.sizes["t"]):
+                    # Convert to Grayscale
+                    weights = xr.DataArray([0.2989, 0.5870, 0.1140], dims=["bands"])
+                    grayscale = (data[{"t": i}] * weights).sum(dim="bands")
+
+                    # Determine histogram
+                    grayscale_np = grayscale.values.flatten()
+                    grayscale_np = grayscale_np / 10000
+                    grayscale_np = grayscale_np * 255
+                    hist_values, bin_edges = np.histogram(grayscale_np, bins=255, range=(0, 255))
+
+                    # If histogram has too much white (cloud) don't include
+                    if np.sum(hist_values[70:254]) > data.shape[-2]*data.shape[-1]*0.05:
+                        print("Too much cloud")
+                        continue
+
+                    # If any NaN don't include:
+                    if  hist_values[0] > 30:
+                        print("Contained NaN")
+                        continue
+
+                    # If made it through checks then make representative of year and move on
+                    datasets.append(ds[{"t": i}])
+                    print("Picture Accepted")
+                    break
+
+                # Check if year was added, if not print error
+
+                os.remove(file_path)
+
+            except FileNotFoundError:
+                print(f"Missing {year} ")
+
+        combined_data = xr.concat(datasets, dim="t")
+        file_path = f"./data/{self.location}_{self.height}x{self.width}_{self.start_year}to{self.end_year}.nc"
+        if file_path is not None:
+            combined_data.to_netcdf(file_path)
 
         self.finished.emit()
 
@@ -364,16 +428,17 @@ class App(QMainWindow):
         self.download_button.setEnabled(False)
         self.download_button.setText("Downloading...")
         print("button changed")
-        location = self.location_input.text()
-        width = self.width_spinbox.value()
-        height = self.height_spinbox.value()
-        north, south, east, west = postcode_to_area(location, height, width)
-        start_year = self.start_date_input.date().year()
-        end_year = self.end_date_input.date().year()
-        for year in range(start_year,end_year+1):
-            saveLocation = f"./data/{location}_{height}x{width}_{year}.nc"
+        self.location = self.location_input.text()
+        self.width = self.width_spinbox.value()
+        self.height = self.height_spinbox.value()
+        north, south, east, west = postcode_to_area(self.location, self.height, self.width)
+        self.start_year = self.start_date_input.date().year()
+        self.end_year = self.end_date_input.date().year()
+        self.total_downloads = (self.end_year - self.start_year) + 1
+        self.download_count = 0
+        for year in range(self.start_year,self.end_year+1):
+            saveLocation = f"./data/{self.location}_{self.height}x{self.width}_{year}.nc"
             print(saveLocation)
-            # download_dataset(north, south, east, west, BANDS, MAX_CLOUD_COVER, saveLocation, year)
             self.worker = DownloadWorker(north, south, east, west, BANDS, MAX_CLOUD_COVER, saveLocation, year)
             self.thread = QThread()
             self.worker.moveToThread(self.thread)
@@ -382,12 +447,26 @@ class App(QMainWindow):
             self.thread.start()
 
     def download_finished(self):
-        self.download_button.setEnabled(True)
-        self.download_button.setText("Download")
-        print("Download complete")
         self.thread.quit()
         self.thread.wait()
+        print("Download complete")
+        self.download_count +=1
+
+        if self.download_count >= self.total_downloads:
+            print("All downloads finished")
+            self.download_button.setText("Combining datasets...")
+            self.worker = CombineDatasetWorker(self.location, self.height, self.width, self.start_year, self.end_year)
+            self.thread = QThread()
+            self.worker.moveToThread(self.thread)
+            self.thread.started.connect(self.worker.run)
+            self.worker.finished.connect(self.combined_dataset_finished)
+            self.thread.start()
+
+    def combined_dataset_finished(self):
+        self.download_button.setEnabled(True)
+        self.download_button.setText("Download")
         self.update_data_selection()
+        print("Combined dataset finished")
 
 # ---------------- Global Variables ----------------
 BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "B11", "B12"]
