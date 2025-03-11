@@ -128,7 +128,7 @@ for i in range(num_images):
     plt.axis("off")
 
 plt.tight_layout()
-plt.show()
+plt.savefig('Augmented Data.png')
 
 data_loading_time = time.time() - start_data_time
 print(f"Data loading completed in {data_loading_time:.2f} seconds.")
@@ -208,12 +208,31 @@ conf_matrix = confusion_matrix(y_true, y_pred)
 print("Classification Report:\n", classification_report(y_true, y_pred, target_names=class_names))
 
 # Plot Confusion Matrix
-plt.figure(figsize=(10, 8))
+plt.figure(figsize=(12, 10))
 sns.heatmap(conf_matrix, annot=True, fmt="d", cmap="Blues", xticklabels=class_names, yticklabels=class_names)
 plt.xlabel("Predicted")
 plt.ylabel("True")
 plt.title("Confusion Matrix")
-plt.show()
+plt.savefig('Confusion_Matrix.png')
+
+# Save plots
+plt.figure()
+plt.plot(history.history['accuracy'], label='Training Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.title('Training and Validation Accuracy')
+plt.savefig('accuracy_plot.png')
+
+plt.figure()
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+plt.title('Training and Validation Loss')
+plt.savefig('loss_plot.png')
 
 # Print Classification Report
 print("Classification Report:")
