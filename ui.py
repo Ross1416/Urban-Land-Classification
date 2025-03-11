@@ -8,6 +8,7 @@ import sys
 import os
 import numpy as np
 from updated_acquire_data import *
+from load_data import *
 import openeo
 import asyncio
 import xarray as xr
@@ -126,7 +127,7 @@ class App(QMainWindow):
         #     "Industrial": QColor(128, 128, 128, 100),  # Gray (3)
         #     "Water": QColor(0, 0, 255, 100)  # Blue (4)
         # }
-
+        self.dataset = None
         # Test overlay colours
         self.class_colours = {
             "Trees": "Green",  # Green (0)
@@ -370,10 +371,18 @@ class App(QMainWindow):
 
     def load_btn_clicked(self):
         # Update image
-        self.create_overlay()
-        self.update_data_selection()
-        self.update_distribution_graph([30,20,10,80,20])
         print("Load clicked")
+
+        file_path = DATA_PATH+self.selection_dropdown.currentText()
+        idx = file_path.find("_")
+        idx = file_path.find("_", idx + 1)
+        self.start_year = int(file_path[idx+1:idx+5])
+        self.end_year = int(file_path[idx+7:idx+11])
+
+        self.create_overlay()
+        self.update_scroll_bar()
+        # self.update_distribution_graph([30,20,10,80,20])
+        self.dataset = xr.load_dataset(file_path)
 
     def slider_value_changed(self):
         print("Slider value changed")
@@ -395,11 +404,11 @@ class App(QMainWindow):
         self.selection_dropdown.clear()
         self.selection_dropdown.addItems(files)
 
-    def update_scroll_bar(self,start_date,end_date,num_years):
+    def update_scroll_bar(self):
         self.slider.setMinimum(0)
-        self.slider.setMaximum(num_years)
-        self.start_date_label = QLabel(start_date)
-        self.end_date_label = QLabel(end_date)
+        self.slider.setMaximum(abs(self.end_year-self.start_year))
+        self.start_date_label.setText(str(self.start_year))
+        self.end_date_label.setText(str(self.end_year))
 
     def update_image(self,image):
         self.pixmap = QPixmap(image)
