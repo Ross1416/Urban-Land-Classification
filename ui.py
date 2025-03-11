@@ -12,6 +12,7 @@ import openeo
 import asyncio
 import xarray as xr
 from UI_workers import *
+from time import sleep
 
 class App(QMainWindow):
     def __init__(self):
@@ -67,6 +68,8 @@ class App(QMainWindow):
         self.threadpool = QThreadPool.globalInstance()
         print("Multithreading with maximum %d threads" % self.threadpool.maxThreadCount())
 
+        # Initialize QErrorMessage
+        self.error_dialog = QErrorMessage(self)
 
     def create_centre_layout(self):
         image_container = self.create_image_panel()
@@ -297,9 +300,11 @@ class App(QMainWindow):
 
     def toggle_overlay(self):
         if self.toggle_overlay_checkbox.isChecked():
-            self.image_label.setPixmap(self.overlay_pixmap)
+            scaled_pixmap = self.overlay_pixmap.scaled(self.overlay_pixmap.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.image_label.setPixmap(self.scaled_pixmap)
         else:
-            self.image_label.setPixmap(self.pixmap)
+            scaled_pixmap = self.pixmap.scaled(self.pixmap.size(), Qt.KeepAspectRatio,Qt.SmoothTransformation)
+            self.image_label.setPixmap(scaled_pixmap)
 
     def toggle_change(self):
         if self.toggle_change_checkbox.isChecked():
@@ -372,37 +377,43 @@ class App(QMainWindow):
             saveLocation = f"./data/{self.location}_{self.height}x{self.width}_{year}.nc"
             print(saveLocation)
 
-            worker = Worker(download_dataset(north, south, east, west, BANDS, MAX_CLOUD_COVER, saveLocation, year))  # Any other args, kwargs are passed to the run function
+            worker = Worker(download_dataset, north, south, east, west, BANDS, MAX_CLOUD_COVER, saveLocation, year)  # Any other args, kwargs are passed to the run function
             worker.signals.finished.connect(self.download_finished)
+            worker.signals.error.connect(self.download_error)
 
             # Execute
             self.threadpool.start(worker)
-
-            # worker = DownloadWorker(north, south, east, west, BANDS, MAX_CLOUD_COVER, saveLocation, year)
-            # thread = QThread()
-            # worker.moveToThread(thread)
-            # worker.finished.connect(self.download_finished)
-            # worker.finished.connect(thread.quit)
-            # worker.finished.connect(worker.deleteLater)
-            # thread.finished.connect(thread.deleteLater)
-            #
-            # thread.started.connect(worker.run)
-            # thread.start()
+    def download_error(self, err):
+        # print("Download error")
+        # print(type(err[0]))
+        # print(type(err[1]))
+        # print(type(err[2]))
+        # print(err[0])
+        # print(err[1])
+        # print(err[2])
+        # if err[1] == openeo.rest.OpenEoApiPlainError('Too Many Requests'):
+        self.error_dialog.showMessage('Too many requests were made. Wait before reattempting download.')
+        self.download_button.setEnabled(True)
+        self.download_button.setText("Download")
 
     def download_finished(self):
         print("Download complete")
         self.download_count +=1
 
-        # if self.download_count >= self.total_downloads:
-        #     print("All downloads finished")
-        #     self.download_button.setText("Combining datasets...")
-        #     worker = CombineDatasetWorker(self.location, self.height, self.width, self.start_year, self.end_year)
-        #     # self.thread.started.connect(self.worker.run)
-        #     worker.finished.connect(self.combined_dataset_finished)
-        #     # self.thread_pool.start(worker)
+        if self.download_count >= self.total_downloads:
+            print("All downloads finished")
+            self.download_button.setText("Combining datasets...")
+            # worker = Worker(combined_dataset,self.location, self.height, self.width, self.start_year, self.end_year)
+            worker = Worker(combined_dataset)
+            worker.signals.finished.connect(self.combined_dataset_finished)
+            worker.signals.error.connect(self.combined_dataset_error)
+            self.thread_pool.start(worker)
+
+    def combined_dataset_error(self,err):
+        print("Combine error")
+        print(err)
 
     def combined_dataset_finished(self):
-
         self.download_button.setEnabled(True)
         self.download_button.setText("Download")
         self.update_data_selection()
