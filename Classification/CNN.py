@@ -30,7 +30,7 @@ print("Enabled Mixed Precision Training")
 
 # Parameters
 np.random.seed(1)
-optimizer_algorithm = Adam(learning_rate=0.00003)
+optimizer_algorithm = Adam(learning_rate=0.0001)
 number_epoch = 100
 batch_length = 16
 show_inter_results = 1
@@ -72,8 +72,9 @@ print("Splitting data into training and testing sets...")
 X_train_paths, X_test_paths, y_train, y_test = train_test_split(image_paths, labels, test_size=0.2, random_state=1, stratify=labels)
 print(f"Training set: {len(X_train_paths)} images, Testing set: {len(X_test_paths)} images")
 
-# Learning Rate Scheduler
+# Define Callbacks
 lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, verbose=1, min_lr=1e-6)
+early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True, verbose=1)
 
 def parse_image(img_path, label):
     img = tf.io.read_file(img_path)
@@ -88,7 +89,7 @@ def augment_image(image, label):
     image = tf.image.random_brightness(image, max_delta=0.4)
     image = tf.image.random_contrast(image, lower=0.6, upper=1.5)
     image = tf.image.random_saturation(image, lower=0.6, upper=1.5)
-    image = tf.image.random_hue(image, max_delta=0.01)
+    image = tf.image.random_hue(image, max_delta=0.1)
     image = tf.clip_by_value(image, 0.0, 1.0)
     return image, label
 
@@ -166,7 +167,11 @@ print("Model compiled")
 print("🚀 Starting training...")
 start_train_time = time.time()
 
-history = model.fit(train_dataset, epochs=number_epoch, verbose=show_inter_results, validation_data=test_dataset)
+history = model.fit(train_dataset,
+                    epochs=number_epoch,
+                    verbose=show_inter_results,
+                    validation_data=test_dataset,
+                    callbacks=[lr_scheduler, early_stopping])
 
 training_time = time.time() - start_train_time
 print(f"Training completed in {training_time:.2f} seconds.")
