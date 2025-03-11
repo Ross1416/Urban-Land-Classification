@@ -40,8 +40,8 @@ num_cols = 64
 # Regularization Parameters
 use_l1 = True  # Set to True to enable L1 regularization
 use_l2 = True  # Set to True to enable L2 regularization
-l1_reg = 0.0002  # L1 regularization strength
-l2_reg = 0.001  # L2 regularization strength
+l1_reg = 0.0001  # L1 regularization strength
+l2_reg = 0.00075  # L2 regularization strength
 
 # Define Data Path
 data_dir = '/Users/andrewferguson/EuroSAT/EuroSAT_RGB'  # Update this path if needed
@@ -150,8 +150,12 @@ model = Sequential([
     MaxPooling2D((2, 2)),
     BatchNormalization(),
 
+    Conv2D(256, (3, 3), activation='relu', kernel_regularizer=regularizer),
+    MaxPooling2D((2, 2)),
+    BatchNormalization(),
+
     GlobalAveragePooling2D(),
-    Dense(256, activation='relu'),
+    Dense(512, activation='relu'),
     Dropout(0.5),
     Dense(len(class_names), activation='softmax')
 ])
