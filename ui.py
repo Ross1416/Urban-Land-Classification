@@ -1,7 +1,6 @@
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import Qt, QDate, QObject, QThread, pyqtSignal
-
 from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import sys
@@ -12,104 +11,7 @@ from load_data import *
 import openeo
 import asyncio
 import xarray as xr
-
-
-class DownloadWorker(QObject):
-    finished = pyqtSignal()
-
-    def __init__(self, north, south, east, west, bands, cloud_cover, save_path, year):
-        super().__init__()
-        self.north = north
-        self.south = south
-        self.east = east
-        self.west = west
-        self.bands = bands
-        self.cloud_cover = cloud_cover
-        self.save_path = save_path
-        self.year = year
-
-    def run(self):
-        con = openeo.connect("openeo.dataspace.copernicus.eu")
-        con.authenticate_oidc()
-
-        # Generate time ranges for March of each year from 2014 to 2024
-        temporal_extent = [f"{self.year}-04-01", f"{self.year}-06-28"]
-        print(temporal_extent)
-
-        datacube = con.load_collection(
-            "SENTINEL2_L2A",
-            spatial_extent={"west": self.west, "south": self.south, "east": self.east, "north": self.north},
-            temporal_extent=temporal_extent,
-            bands=self.bands,
-            max_cloud_cover=self.cloud_cover,
-        )
-
-        if self.save_path is not None:
-            datacube.download(self.save_path)
-
-        self.finished.emit()
-
-class CombineDatasetWorker(QObject):
-    finished = pyqtSignal()
-
-    def __init__(self, location, height, width, start_year, end_year):
-        super().__init__()
-        self.location = location
-        self.height = height
-        self.width = width
-        self.start_year = start_year
-        self.end_year = end_year
-
-    def run(self):
-        # Combine Dataset
-        datasets = []
-        for year in range(self.start_year, self.end_year + 1):
-            file_path = f"./data/{self.location}_{self.height}x{self.width}_{year}.nc"
-            print(file_path)
-            try:
-                ds = xr.load_dataset(file_path)
-                # Convert xarray DataSet to a (bands, t, x, y) DataArray
-                data = ds[["B04", "B03", "B02"]].to_array(dim="bands")
-
-                for i in range(0, data.sizes["t"]):
-                    # Convert to Grayscale
-                    weights = xr.DataArray([0.2989, 0.5870, 0.1140], dims=["bands"])
-                    grayscale = (data[{"t": i}] * weights).sum(dim="bands")
-
-                    # Determine histogram
-                    grayscale_np = grayscale.values.flatten()
-                    grayscale_np = grayscale_np / 10000
-                    grayscale_np = grayscale_np * 255
-                    hist_values, bin_edges = np.histogram(grayscale_np, bins=255, range=(0, 255))
-
-                    # If histogram has too much white (cloud) don't include
-                    if np.sum(hist_values[70:254]) > data.shape[-2]*data.shape[-1]*0.05:
-                        print("Too much cloud")
-                        continue
-
-                    # If any NaN don't include:
-                    if  hist_values[0] > 30:
-                        print("Contained NaN")
-                        continue
-
-                    # If made it through checks then make representative of year and move on
-                    datasets.append(ds[{"t": i}])
-                    print("Picture Accepted")
-                    break
-
-                # Check if year was added, if not print error
-
-                os.remove(file_path)
-
-            except FileNotFoundError:
-                print(f"Missing {year} ")
-
-        combined_data = xr.concat(datasets, dim="t")
-        file_path = f"./data/{self.location}_{self.height}x{self.width}_{self.start_year}to{self.end_year}.nc"
-        if file_path is not None:
-            combined_data.to_netcdf(file_path)
-
-        self.finished.emit()
+from UI_workers import *
 
 class App(QMainWindow):
     def __init__(self):
@@ -161,6 +63,10 @@ class App(QMainWindow):
         self.update_data_selection()
         self.create_overlay()
         self.update_distribution_graph()
+
+        self.threadpool = QThreadPool.globalInstance()
+        print("Multithreading with maximum %d threads" % self.threadpool.maxThreadCount())
+
 
     def create_centre_layout(self):
         image_container = self.create_image_panel()
@@ -378,11 +284,12 @@ class App(QMainWindow):
         self.start_year = int(file_path[idx+1:idx+5])
         self.end_year = int(file_path[idx+7:idx+11])
 
-        self.create_overlay()
         self.update_scroll_bar()
-        # self.update_distribution_graph([30,20,10,80,20])
+
         self.dataset = xr.load_dataset(file_path)
         self.update_image()
+        self.create_overlay()
+        # self.update_distribution_graph([30,20,10,80,20])
 
     def slider_value_changed(self):
         print("Slider value changed")
@@ -421,7 +328,8 @@ class App(QMainWindow):
         bytes_per_line = 3 * width
         img = QImage(rgb_image.data, width, height, bytes_per_line, QImage.Format_RGB888)
         self.pixmap = QPixmap.fromImage(img)
-        self.image_label.setPixmap(self.pixmap)
+        scaled_pixmap = self.pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self.image_label.setPixmap(scaled_pixmap)
 
     def create_data_folder(self):
         if not os.path.exists(DATA_PATH):
@@ -447,6 +355,11 @@ class App(QMainWindow):
         self.download_button.setText("Downloading...")
         print("button changed")
         self.location = self.location_input.text()
+
+        if not self.location:
+            print("Please enter a location.")
+            return
+
         self.width = self.width_spinbox.value()
         self.height = self.height_spinbox.value()
         north, south, east, west = postcode_to_area(self.location, self.height, self.width)
@@ -454,33 +367,42 @@ class App(QMainWindow):
         self.end_year = self.end_date_input.date().year()
         self.total_downloads = (self.end_year - self.start_year) + 1
         self.download_count = 0
+
         for year in range(self.start_year,self.end_year+1):
             saveLocation = f"./data/{self.location}_{self.height}x{self.width}_{year}.nc"
             print(saveLocation)
-            self.worker = DownloadWorker(north, south, east, west, BANDS, MAX_CLOUD_COVER, saveLocation, year)
-            self.thread = QThread()
-            self.worker.moveToThread(self.thread)
-            self.thread.started.connect(self.worker.run)
-            self.worker.finished.connect(self.download_finished)
-            self.thread.start()
+
+            worker = Worker(download_dataset(north, south, east, west, BANDS, MAX_CLOUD_COVER, saveLocation, year))  # Any other args, kwargs are passed to the run function
+            worker.signals.finished.connect(self.download_finished)
+
+            # Execute
+            self.threadpool.start(worker)
+
+            # worker = DownloadWorker(north, south, east, west, BANDS, MAX_CLOUD_COVER, saveLocation, year)
+            # thread = QThread()
+            # worker.moveToThread(thread)
+            # worker.finished.connect(self.download_finished)
+            # worker.finished.connect(thread.quit)
+            # worker.finished.connect(worker.deleteLater)
+            # thread.finished.connect(thread.deleteLater)
+            #
+            # thread.started.connect(worker.run)
+            # thread.start()
 
     def download_finished(self):
-        self.thread.quit()
-        self.thread.wait()
         print("Download complete")
         self.download_count +=1
 
-        if self.download_count >= self.total_downloads:
-            print("All downloads finished")
-            self.download_button.setText("Combining datasets...")
-            self.worker = CombineDatasetWorker(self.location, self.height, self.width, self.start_year, self.end_year)
-            self.thread = QThread()
-            self.worker.moveToThread(self.thread)
-            self.thread.started.connect(self.worker.run)
-            self.worker.finished.connect(self.combined_dataset_finished)
-            self.thread.start()
+        # if self.download_count >= self.total_downloads:
+        #     print("All downloads finished")
+        #     self.download_button.setText("Combining datasets...")
+        #     worker = CombineDatasetWorker(self.location, self.height, self.width, self.start_year, self.end_year)
+        #     # self.thread.started.connect(self.worker.run)
+        #     worker.finished.connect(self.combined_dataset_finished)
+        #     # self.thread_pool.start(worker)
 
     def combined_dataset_finished(self):
+
         self.download_button.setEnabled(True)
         self.download_button.setText("Download")
         self.update_data_selection()
