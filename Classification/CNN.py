@@ -82,15 +82,52 @@ def parse_image(img_path, label):
     img = img / 255.0  # Normalize
     return img, label
 
-def build_dataset(image_paths, labels, batch_size=20):
+def augment_image(image, label):
+    image = tf.image.random_flip_left_right(image)
+    image = tf.image.random_flip_up_down(image)
+    image = tf.image.random_brightness(image, max_delta=0.4)
+    image = tf.image.random_contrast(image, lower=0.6, upper=1.5)
+    image = tf.image.random_saturation(image, lower=0.6, upper=1.5)
+    image = tf.image.random_hue(image, max_delta=0.01)
+    image = tf.clip_by_value(image, 0.0, 1.0)
+    return image, label
+
+
+def build_dataset(image_paths, labels, batch_size=20, augment=True):
     dataset = tf.data.Dataset.from_tensor_slices((image_paths, labels))
     dataset = dataset.map(parse_image, num_parallel_calls=tf.data.AUTOTUNE)
+
+    if augment:
+        dataset = dataset.map(augment_image, num_parallel_calls=tf.data.AUTOTUNE)
+
     dataset = dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
     return dataset
 
 print("Building TensorFlow datasets...")
 train_dataset = build_dataset(X_train_paths, y_train, batch_length)
 test_dataset = build_dataset(X_test_paths, y_test, batch_length)
+
+# Fetch a batch of augmented images from the dataset
+sample_batch = next(iter(train_dataset))
+
+# Extract images and labels
+sample_images, sample_labels = sample_batch
+
+# Convert labels from one-hot encoding to class indices
+sample_labels = np.argmax(sample_labels.numpy(), axis=1)
+
+# Plot the images with their labels
+num_images = min(9, len(sample_images))  # Show up to 9 images
+plt.figure(figsize=(10, 10))
+
+for i in range(num_images):
+    plt.subplot(3, 3, i + 1)
+    plt.imshow(sample_images[i].numpy())  # Convert tensor to NumPy for visualization
+    plt.title(f"Label: {class_names[sample_labels[i]]}")
+    plt.axis("off")
+
+plt.tight_layout()
+plt.show()
 
 data_loading_time = time.time() - start_data_time
 print(f"Data loading completed in {data_loading_time:.2f} seconds.")
@@ -135,7 +172,7 @@ training_time = time.time() - start_train_time
 print(f"Training completed in {training_time:.2f} seconds.")
 
 print("Saving the trained model...")
-model.save("eurosat_model.keras")
+model.save("eurosat_model_augmented.keras")
 print("Model saved successfully.")
 
 # Evaluate Model
