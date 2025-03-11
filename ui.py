@@ -14,7 +14,6 @@ import asyncio
 import xarray as xr
 
 
-
 class DownloadWorker(QObject):
     finished = pyqtSignal()
 
@@ -383,9 +382,11 @@ class App(QMainWindow):
         self.update_scroll_bar()
         # self.update_distribution_graph([30,20,10,80,20])
         self.dataset = xr.load_dataset(file_path)
+        self.update_image()
 
     def slider_value_changed(self):
         print("Slider value changed")
+        self.update_image()
 
     def toggle_overlay(self):
         if self.toggle_overlay_checkbox.isChecked():
@@ -410,8 +411,16 @@ class App(QMainWindow):
         self.start_date_label.setText(str(self.start_year))
         self.end_date_label.setText(str(self.end_year))
 
-    def update_image(self,image):
-        self.pixmap = QPixmap(image)
+    def update_image(self):
+        data = self.dataset[["B04", "B03", "B02"]].to_array(dim="bands")
+        redArr = data[{"t": self.slider.value()}].values[0,:,:]
+        greenArr = data[{"t": self.slider.value()}].values[1, :,:]
+        blueArr = data[{"t": self.slider.value()}].values[2, :,:]
+        rgb_image = np.dstack([normalise_band(redArr), normalise_band(greenArr), normalise_band(blueArr)])
+        height, width, channel = rgb_image.shape
+        bytes_per_line = 3 * width
+        img = QImage(rgb_image.data, width, height, bytes_per_line, QImage.Format_RGB888)
+        self.pixmap = QPixmap.fromImage(img)
         self.image_label.setPixmap(self.pixmap)
 
     def create_data_folder(self):

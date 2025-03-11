@@ -9,7 +9,9 @@ BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "
 
 def normalise_band(band):
     band = band - np.nanmin(band)
+    # band = np.clip(band, a_min=0, a_max=5000)
     band = band / np.nanmax(band)
+    # band = band/5000
     band = np.nan_to_num(band, nan=0)
     return (band * 255).astype(np.uint8)
 
