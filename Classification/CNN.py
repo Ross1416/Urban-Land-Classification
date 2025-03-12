@@ -30,8 +30,8 @@ print("Enabled Mixed Precision Training")
 
 # Parameters
 np.random.seed(1)
-optimizer_algorithm = Adam(learning_rate=0.0001)
-number_epoch = 100
+optimizer_algorithm = Adam(learning_rate=0.00003)
+number_epoch = 200
 batch_length = 16
 show_inter_results = 1
 num_rows = 64
@@ -73,8 +73,8 @@ X_train_paths, X_test_paths, y_train, y_test = train_test_split(image_paths, lab
 print(f"Training set: {len(X_train_paths)} images, Testing set: {len(X_test_paths)} images")
 
 # Define Callbacks
-lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, verbose=1, min_lr=1e-6)
-early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True, verbose=1)
+lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, verbose=1, min_lr=1e-6)
+early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True, verbose=1)
 
 def parse_image(img_path, label):
     img = tf.io.read_file(img_path)
@@ -138,25 +138,30 @@ print("Building the CNN model...")
 regularizer = l1_l2(l1=l1_reg if use_l1 else 0.0, l2=l2_reg if use_l2 else 0.0)
 
 model = Sequential([
-    Conv2D(32, (3, 3), activation='relu', input_shape=(num_rows, num_cols, 3), kernel_regularizer=regularizer),
+
+    Conv2D(64, (3, 3), activation='relu', padding='same', input_shape=(num_rows, num_cols, 3), kernel_regularizer=regularizer),
+    BatchNormalization(),
+    Conv2D(64, (3, 3), activation='relu', padding='same', kernel_regularizer=regularizer),
     MaxPooling2D((2, 2)),
     BatchNormalization(),
 
-    Conv2D(64, (3, 3), activation='relu', kernel_regularizer=regularizer),
+    Conv2D(128, (3, 3), activation='relu', padding='same', kernel_regularizer=regularizer),
+    BatchNormalization(),
+    Conv2D(128, (3, 3), activation='relu', padding='same', kernel_regularizer=regularizer),
     MaxPooling2D((2, 2)),
     BatchNormalization(),
 
-    Conv2D(128, (3, 3), activation='relu', kernel_regularizer=regularizer),
-    MaxPooling2D((2, 2)),
+    Conv2D(256, (3, 3), activation='relu', padding='same', kernel_regularizer=regularizer),
     BatchNormalization(),
-
-    Conv2D(256, (3, 3), activation='relu', kernel_regularizer=regularizer),
+    Conv2D(256, (3, 3), activation='relu', padding='same', kernel_regularizer=regularizer),
     MaxPooling2D((2, 2)),
     BatchNormalization(),
 
     GlobalAveragePooling2D(),
-    Dense(512, activation='relu'),
-    Dropout(0.5),
+    Dense(1024, activation='relu', kernel_regularizer=regularizer),
+    Dropout(0.4),
+    Dense(512, activation='relu', kernel_regularizer=regularizer),
+    Dropout(0.3),
     Dense(len(class_names), activation='softmax')
 ])
 
@@ -212,7 +217,7 @@ conf_matrix = confusion_matrix(y_true, y_pred)
 print("Classification Report:\n", classification_report(y_true, y_pred, target_names=class_names))
 
 # Plot Confusion Matrix
-plt.figure(figsize=(12, 10))
+plt.figure(figsize=(16, 14))
 sns.heatmap(conf_matrix, annot=True, fmt="d", cmap="Blues", xticklabels=class_names, yticklabels=class_names)
 plt.xlabel("Predicted")
 plt.ylabel("True")
