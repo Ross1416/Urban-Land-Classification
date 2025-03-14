@@ -407,6 +407,7 @@ class App(QMainWindow):
     def classify(self):
         self.load_button.setText("Classifying..")
         self.load_button.setEnabled(False)
+
         data = self.dataset[["B04", "B03", "B02"]].to_array(dim="bands")
         # classify(self.model, data, self.class_labels)
         worker = Worker(classify, self.model, data, self.class_labels)

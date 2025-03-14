@@ -38,50 +38,77 @@ def check_cloud(red, green, blue, width, height):
 
 def classify(model, data, class_labels):
     class_map = []
-    num_rows = math.floor(data[{"t": 0}].shape[1]/64)
-    num_cols = math.floor(data[{"t": 0}].shape[2]/64)
 
-    print(num_rows, num_cols)
-
+    # Classify images for each year
     for k in range(data.sizes["t"]):
-        # idImage = 0
-        class_map_year = np.zeros((num_rows, num_cols))
-        for i in range(0,len(data[{"t": 0}].values[0]), 64):
-            for j in range(0, len(data[{"t": 0}].values[0,0]), 64):
-                if i+64 > len(data[{"t": 0}].values[0]) or j+64 > len(data[{"t": 0}].values[0,0]):
-                    print("\nData out of range")
+        strideRows = 64
+        strideCols = 64
+
+        # Create matrix for each pixel that keeps track of classes its been labelled
+        classScores = np.zeros((
+            len(data[{"t": 0}].values[0]) + 1,
+            len(data[{"t": 0}].values[0, 0]) + 1,
+            len(class_labels)
+        ))
+
+        # Create new image with what each pixel was classified as
+        newIm = np.zeros((
+            len(data[{"t": 0}].values[0]) + 1,
+            len(data[{"t": 0}].values[0][0]) + 1
+        ))
+
+        # Classify 64*64 patches at every stride
+        for i in range(0, len(data[{"t": 0}].values[0]), strideRows):
+            for j in range(0, len(data[{"t": 0}].values[0, 0]), strideCols):
+                if i + 64 > len(data[{"t": 0}].values[0]) or j + 64 > len(data[{"t": 0}].values[0, 0]):
                     continue
 
-                redArr = data[{"t": k}].values[0, i:i+64, j:j+64]
+                # Get RGB
+                redArr = data[{"t": k}].values[0, i:i + 64, j:j + 64]
                 greenArr = data[{"t": k}].values[1, i:i + 64, j:j + 64]
                 blueArr = data[{"t": k}].values[2, i:i + 64, j:j + 64]
 
-                cnn_image = np.dstack([normalise_band_for_CNN(redArr),
-                                       normalise_band_for_CNN(greenArr),
-                                       normalise_band_for_CNN(blueArr)])
-                cnn_image = np.expand_dims(cnn_image, axis=0)
+                # Double check not too much cloud cover before NN
+                if check_cloud(redArr, greenArr, blueArr, 64, 64):
+                    # Too much cloud
+                    predicted_class = len(class_labels) - 2
+                else:
+                    # Classify patch
+                    cnn_image = np.dstack([normalise_band_for_CNN(redArr),
+                                           normalise_band_for_CNN(greenArr),
+                                           normalise_band_for_CNN(blueArr)])
+                    cnn_image = np.expand_dims(cnn_image, axis=0)
 
-                # Predict
-                predictions = model.predict(cnn_image)
+                    # Predict
+                    predictions = model.predict(cnn_image)
 
-                # Get the predicted class index
-                predicted_class = np.argmax(predictions, axis=1)[0]
-                class_map_year[int(i/64)][int(j/64)] = int(predicted_class)
-                # predicted_label = class_labels[predicted_class]
+                    # Get the predicted class index
+                    predicted_class = np.argmax(predictions, axis=1)[0]
 
-                # For testing display cropped image
-                # rgb_image = np.dstack([normalise_band(redArr), normalise_band(greenArr), normalise_band(blueArr)])
-                # axes[idImage].imshow(rgb_image)
-                # axes[idImage].set_xticks([])
-                # axes[idImage].set_yticks([])
-                # axes[idImage].set_frame_on(False)
-                # axes[idImage].set_title(predicted_label, fontsize=8)
-                # idImage = idImage + 1
+                # Add to each pixel of patch that it was found to be class x
+                for rows in range(i, i + 64):
+                    for cols in range(j, j + 64):
+                        classScores[rows, cols, predicted_class] += 1
 
-        # plt.subplots_adjust(wspace=0, hspace=0)
-        # plt.show()
+        # Iterate through each pixel and check which class it was assigned to most
+        for i in range(0, len(newIm) - 1):
+            for j in range(0, len(newIm[0]) - 1):
+                foundClass = 0
+                currScore = classScores[i, j, 0]
+                for l in range(1, len(class_labels) - 1):
+                    if currScore < classScores[i, j, l]:
+                        foundClass = l
+                        currScore = classScores[i, j, l]
 
-        class_map.append(class_map_year)
+                if foundClass == 0 and currScore == 0:
+                    foundClass = len(class_labels)
+
+                newIm[i, j] = foundClass
+
+
+        print(f"{100*k/data.sizes["t"]}%")
+        class_map.append(newIm)
+
     return class_map
 
 
@@ -106,46 +133,6 @@ if __name__ == "__main__":
         "Industrial", "Pasture", "Permanent Crop", "Residential",
         "River", "Sea/Lake", "Cloud", "Undefined"
     ]
-
-    # for k in range(data.sizes["t"]):
-    #     fig, axes = plt.subplots(nrows=math.floor(len(data[{"t": 0}].values[0]) / 64),
-    #                              ncols=math.floor(len(data[{"t": 0}].values[0, 0]) / 64),
-    #                              figsize=(8, 3), dpi=90, sharex=True, sharey=True)
-    #     axes = axes.flatten()
-    #     idImage = 0
-    #     for i in range(0,len(data[{"t": 0}].values[0]), 64):
-    #         for j in range(0, len(data[{"t": 0}].values[0,0]), 64):
-    #             if i+64 > len(data[{"t": 0}].values[0]) or j+64 > len(data[{"t": 0}].values[0,0]):
-    #                 print("\nData out of range")
-    #                 continue
-    #
-    #             redArr = data[{"t": k}].values[0, i:i+64, j:j+64]
-    #             greenArr = data[{"t": k}].values[1, i:i + 64, j:j + 64]
-    #             blueArr = data[{"t": k}].values[2, i:i + 64, j:j + 64]
-    #
-    #             cnn_image = np.dstack([normalise_band_for_CNN(redArr),
-    #                                    normalise_band_for_CNN(greenArr),
-    #                                    normalise_band_for_CNN(blueArr)])
-    #             cnn_image = np.expand_dims(cnn_image, axis=0)
-    #
-    #             # Predict
-    #             predictions = model.predict(cnn_image)
-    #
-    #             # Get the predicted class index
-    #             predicted_class = np.argmax(predictions, axis=1)[0]
-    #             predicted_label = class_labels[predicted_class]
-    #
-    #             # For testing display cropped image
-    #             rgb_image = np.dstack([normalise_band(redArr), normalise_band(greenArr), normalise_band(blueArr)])
-    #             axes[idImage].imshow(rgb_image)
-    #             axes[idImage].set_xticks([])
-    #             axes[idImage].set_yticks([])
-    #             axes[idImage].set_frame_on(False)
-    #             axes[idImage].set_title(predicted_label, fontsize=8)
-    #             idImage = idImage + 1
-    #
-    #     #plt.subplots_adjust(wspace=0, hspace=0)
-    #     plt.show()
 
     for k in range(data.sizes["t"]):
         fig, axes = plt.subplots(nrows=1,
