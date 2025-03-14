@@ -7,6 +7,8 @@ import math
 
 from tensorflow import keras
 
+import matplotlib.colors as mcolors
+
 BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "B11", "B12"]
 
 def normalise_band_for_CNN(band):
@@ -20,8 +22,22 @@ def normalise_band(band):
     band[band > 255] = 255
     return band.astype(np.uint8)
 
+def check_cloud(red, green, blue, width, height):
+    r = normalise_band(red)
+    g = normalise_band(green)
+    b = normalise_band(blue)
+
+    gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
+
+    hist_values, bin_edges = np.histogram(gray, bins=255, range=(0, 255))
+
+    if np.sum(hist_values[230:254]) > width * height * 0.05:
+        return 1
+
+    return 0
+
 if __name__ == "__main__":
-    file_path = 'data/Glasgow_3x3_2016to2020.nc'
+    file_path = 'data/Stepps_3x3_2016to2021.nc'
 
     # Combine Dataset
     dataset = xr.load_dataset(file_path)
@@ -35,63 +51,139 @@ if __name__ == "__main__":
 
     plt.show()
 
-    # Split an image into 64*64 segments (All set for image 0 can be put in a loop and change 0s to loop var
-
-    print(f"Red Values: {data[{"t": 0}].values[0]}")
-    print(f"Rows: {len(data[{"t": 0}].values[0])}")
-    print(f"Columns: {len(data[{"t": 0}].values[0,0])}")
-
-    fig, axes = plt.subplots(nrows=math.floor(len(data[{"t": 0}].values[0]) / 64), ncols=math.floor(len(data[{"t": 0}].values[0,0]) / 64),
-                             figsize=(8, 3), dpi=90, sharex=True, sharey=True)
-    axes = axes.flatten()
-    idImage = 0
-
-    model = keras.models.load_model('classification/eurosat_model.keras')
+    model = keras.models.load_model('classification/eurosat_model_augmented.keras')
     class_labels = [
         "Annual Crop", "Forest", "Herbaceous Vegetation", "Highway",
         "Industrial", "Pasture", "Permanent Crop", "Residential",
-        "River", "Sea/Lake"
+        "River", "Sea/Lake", "Cloud", "Undefined"
     ]
 
-    for i in range(0,len(data[{"t": 0}].values[0]), 64):
-        for j in range(0, len(data[{"t": 0}].values[0,0]), 64):
-            if i+64 > len(data[{"t": 0}].values[0]) or j+64 > len(data[{"t": 0}].values[0,0]):
-                print("\nData out of range")
-                continue
+    # for k in range(data.sizes["t"]):
+    #     fig, axes = plt.subplots(nrows=math.floor(len(data[{"t": 0}].values[0]) / 64),
+    #                              ncols=math.floor(len(data[{"t": 0}].values[0, 0]) / 64),
+    #                              figsize=(8, 3), dpi=90, sharex=True, sharey=True)
+    #     axes = axes.flatten()
+    #     idImage = 0
+    #     for i in range(0,len(data[{"t": 0}].values[0]), 64):
+    #         for j in range(0, len(data[{"t": 0}].values[0,0]), 64):
+    #             if i+64 > len(data[{"t": 0}].values[0]) or j+64 > len(data[{"t": 0}].values[0,0]):
+    #                 print("\nData out of range")
+    #                 continue
+    #
+    #             redArr = data[{"t": k}].values[0, i:i+64, j:j+64]
+    #             greenArr = data[{"t": k}].values[1, i:i + 64, j:j + 64]
+    #             blueArr = data[{"t": k}].values[2, i:i + 64, j:j + 64]
+    #
+    #             cnn_image = np.dstack([normalise_band_for_CNN(redArr),
+    #                                    normalise_band_for_CNN(greenArr),
+    #                                    normalise_band_for_CNN(blueArr)])
+    #             cnn_image = np.expand_dims(cnn_image, axis=0)
+    #
+    #             # Predict
+    #             predictions = model.predict(cnn_image)
+    #
+    #             # Get the predicted class index
+    #             predicted_class = np.argmax(predictions, axis=1)[0]
+    #             predicted_label = class_labels[predicted_class]
+    #
+    #             # For testing display cropped image
+    #             rgb_image = np.dstack([normalise_band(redArr), normalise_band(greenArr), normalise_band(blueArr)])
+    #             axes[idImage].imshow(rgb_image)
+    #             axes[idImage].set_xticks([])
+    #             axes[idImage].set_yticks([])
+    #             axes[idImage].set_frame_on(False)
+    #             axes[idImage].set_title(predicted_label, fontsize=8)
+    #             idImage = idImage + 1
+    #
+    #     #plt.subplots_adjust(wspace=0, hspace=0)
+    #     plt.show()
 
-            redArr = data[{"t": 1}].values[0, i:i+64, j:j+64]
-            greenArr = data[{"t": 1}].values[1, i:i + 64, j:j + 64]
-            blueArr = data[{"t": 1}].values[2, i:i + 64, j:j + 64]
+    for k in range(data.sizes["t"]):
+        fig, axes = plt.subplots(nrows=1,
+                                 ncols=2)
+        axes = axes.flatten()
+        idImage = 0
+        strideRows = 16
+        strideCols = 16
+        # strideRows = round(len(data[{"t": 0}].values[0])/64)
+        # strideCols = round(len(data[{"t": 0}].values[0]) / 64)
+        classScores = np.zeros((
+            len(data[{"t": 0}].values[0])+1,
+            len(data[{"t": 0}].values[0,0])+1,
+            len(class_labels)
+        ))
 
-            cnn_image = np.dstack([normalise_band_for_CNN(redArr),
-                                   normalise_band_for_CNN(greenArr),
-                                   normalise_band_for_CNN(blueArr)])
-            cnn_image = np.expand_dims(cnn_image, axis=0)
-            print(f"{len(cnn_image)},{len(cnn_image[0])},{len(cnn_image[0,0])}")
+        newIm = np.zeros((
+            len(data[{"t": 0}].values[0])+1,
+            len(data[{"t": 0}].values[0][0])+1
+        ))
 
-            # Predict
-            predictions = model.predict(cnn_image)
+        for i in range(0,len(data[{"t": 0}].values[0]), strideRows):
+            for j in range(0, len(data[{"t": 0}].values[0,0]), strideCols):
+                if i+64 > len(data[{"t": 0}].values[0]) or j+64 > len(data[{"t": 0}].values[0,0]):
+                    print("\nData out of range")
+                    continue
 
-            # Get the predicted class index
-            predicted_class = np.argmax(predictions, axis=1)[0]
-            predicted_label = class_labels[predicted_class]
+                redArr = data[{"t": k}].values[0, i:i+64, j:j+64]
+                greenArr = data[{"t": k}].values[1, i:i + 64, j:j + 64]
+                blueArr = data[{"t": k}].values[2, i:i + 64, j:j + 64]
 
-            # For testing display cropped image
-            rgb_image = np.dstack([normalise_band(redArr), normalise_band(greenArr), normalise_band(blueArr)])
-            axes[idImage].imshow(rgb_image)
-            axes[idImage].set_xticks([])
-            axes[idImage].set_yticks([])
-            axes[idImage].set_frame_on(False)
-            axes[idImage].set_title(predicted_label, fontsize=8)
-            idImage = idImage + 1
-            print(f"\nStarting position ({j},{i})")
-            print(f"Rows taken: {len(redArr)}")
-            print(f"Columns taken: {len(redArr[0])}")
+                if check_cloud(redArr,greenArr,blueArr,64,64):
+                    # Too much cloud
+                    predicted_class = len(class_labels)-2
+                else:
+                    cnn_image = np.dstack([normalise_band_for_CNN(redArr),
+                                           normalise_band_for_CNN(greenArr),
+                                           normalise_band_for_CNN(blueArr)])
+                    cnn_image = np.expand_dims(cnn_image, axis=0)
 
-    #plt.subplots_adjust(wspace=0, hspace=0)
-    plt.show()
+                    # Predict
+                    predictions = model.predict(cnn_image)
 
+                    # Get the predicted class index
+                    predicted_class = np.argmax(predictions, axis=1)[0]
 
+                for rows in range(i,i+64):
+                    for cols in range(j,j+64):
+                        classScores[rows,cols,predicted_class] += 1
+
+        print(len(newIm[0])-1)
+        for i in range(0, len(newIm)-1):
+            for j in range(0, len(newIm[0])-1):
+                foundClass = 0
+                currScore = classScores[i,j,0]
+                for l in range(1, len(class_labels)-1):
+                    if currScore < classScores[i,j,l]:
+                        foundClass = l
+                        currScore = classScores[i, j, l]
+
+                if foundClass == 0 and currScore == 0:
+                    foundClass = len(class_labels)
+
+                newIm[i,j] = foundClass
+
+        data[{"t": k}].plot.imshow(vmin=0, vmax=2000, ax=axes[0])
+        axes[1].imshow(newIm, cmap="viridis")  # or cmap="viridis"
+
+        # Define a colormap with distinct colors for each class
+        num_classes = len(class_labels)
+        colors = plt.cm.get_cmap("tab20", num_classes)  # Use 'tab11' for 11 distinct colors
+
+        # Create a mappable object for colorbar
+        cmap = mcolors.ListedColormap([colors(i) for i in range(num_classes)])
+        bounds = np.arange(num_classes + 1) - 0.5
+        norm = mcolors.BoundaryNorm(bounds, cmap.N)
+
+        # Display classification map
+        im = axes[1].imshow(newIm, cmap=cmap, norm=norm)
+
+        # Add colorbar with class labels
+        cbar = fig.colorbar(im, ax=axes[1], ticks=np.arange(num_classes))
+        cbar.ax.set_yticklabels(class_labels)  # Label the colorbar with class names
+        cbar.set_label("Land Cover Class")  # Colorbar title
+
+        #plt.subplots_adjust(wspace=0, hspace=0)
+        plt.show()
 
 
 

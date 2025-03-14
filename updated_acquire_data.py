@@ -130,10 +130,10 @@ def combined_dataset():
 # ---------------- Main Execution ----------------
 
 if __name__ == "__main__":
-    location = 'Glasgow'
+    location = 'Arles'
     width = 3
     height = 3
-    years = range(2016, 2020+1)
+    years = range(2016, 2023+1)
 
     mode = 1    # 0 = Download Datasets, 1 = Filter to get one image from each dataset
 
@@ -184,7 +184,7 @@ if __name__ == "__main__":
 
                     print(data.shape[-2]*data.shape[-1]*0.1)
                     # If histogram has too much white (cloud) don't include
-                    if np.sum(hist_values[70:254]) > data.shape[-2]*data.shape[-1]*0.05:
+                    if np.sum(hist_values[100:254]) > data.shape[-2]*data.shape[-1]*0.05:
                         print("Too much cloud")
                         continue
 

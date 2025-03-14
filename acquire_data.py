@@ -188,7 +188,7 @@ class SentinelViewer(QWidget):
 # ---------------- Main Execution ----------------
 
 if __name__ == "__main__":
-    location = 'Glasgow'
+    location = 'Los Angeles'
     width = 3
     height = 3
     years = range(2016, 2020+1)
