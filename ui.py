@@ -295,15 +295,15 @@ class App(QMainWindow):
         # self.update_distribution_graph([30,20,10,80,20])
 
     def slider_value_changed(self):
-        print("Slider value changed")
+        # print("Slider value changed")
         self.update_image()
 
     def toggle_overlay(self):
         if self.toggle_overlay_checkbox.isChecked():
-            scaled_pixmap = self.overlay_pixmap.scaled(self.overlay_pixmap.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self.image_label.setPixmap(self.scaled_pixmap)
+            scaled_pixmap = self.overlay_pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.image_label.setPixmap(scaled_pixmap)
         else:
-            scaled_pixmap = self.pixmap.scaled(self.pixmap.size(), Qt.KeepAspectRatio,Qt.SmoothTransformation)
+            scaled_pixmap = self.pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio,Qt.SmoothTransformation)
             self.image_label.setPixmap(scaled_pixmap)
 
     def toggle_change(self):
@@ -403,11 +403,11 @@ class App(QMainWindow):
         if self.download_count >= self.total_downloads:
             print("All downloads finished")
             self.download_button.setText("Combining datasets...")
-            # worker = Worker(combined_dataset,self.location, self.height, self.width, self.start_year, self.end_year)
-            worker = Worker(combined_dataset)
+            worker = Worker(combine_dataset,self.location, self.height, self.width, self.start_year, self.end_year)
+            # worker = Worker(combined_dataset)
             worker.signals.finished.connect(self.combined_dataset_finished)
             worker.signals.error.connect(self.combined_dataset_error)
-            self.thread_pool.start(worker)
+            self.threadpool.start(worker)
 
     def combined_dataset_error(self,err):
         print("Combine error")

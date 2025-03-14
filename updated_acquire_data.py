@@ -77,55 +77,54 @@ def download_dataset(north, south, east, west, bands, cloud_cover, save_path, ye
 
     return datacube
 
-def combined_dataset():
+def combine_dataset(location, height, width, start_year, end_year):
     # Combine Dataset
-    print("Combine dataset fcn")
-    # datasets = []
-    # for year in range(start_year, end_year + 1):
-    #     file_path = f"./data/{location}_{height}x{width}_{year}.nc"
-    #     print(file_path)
-    #     try:
-    #         ds = xr.load_dataset(file_path)
-    #         # Convert xarray DataSet to a (bands, t, x, y) DataArray
-    #         data = ds[["B04", "B03", "B02"]].to_array(dim="bands")
-    #
-    #         for i in range(0, data.sizes["t"]):
-    #             # Convert to Grayscale
-    #             weights = xr.DataArray([0.2989, 0.5870, 0.1140], dims=["bands"])
-    #             grayscale = (data[{"t": i}] * weights).sum(dim="bands")
-    #
-    #             # Determine histogram
-    #             grayscale_np = grayscale.values.flatten()
-    #             grayscale_np = grayscale_np / 10000
-    #             grayscale_np = grayscale_np * 255
-    #             hist_values, bin_edges = np.histogram(grayscale_np, bins=255, range=(0, 255))
-    #
-    #             # If histogram has too much white (cloud) don't include
-    #             if np.sum(hist_values[70:254]) > data.shape[-2]*data.shape[-1]*0.05:
-    #                 print("Too much cloud")
-    #                 continue
-    #
-    #             # If any NaN don't include:
-    #             if hist_values[0] > 30:
-    #                 print("Contained NaN")
-    #                 continue
-    #
-    #             # If made it through checks then make representative of year and move on
-    #             datasets.append(ds[{"t": i}])
-    #             print("Picture Accepted")
-    #             break
-    #
-    #         # Check if year was added, if not print error
-    #
-    #         os.remove(file_path)
-    #
-    #     except FileNotFoundError:
-    #         print(f"Missing {year}")
-    #
-    # combined_data = xr.concat(datasets, dim="t")
-    # file_path = f"./data/{location}_{height}x{width}_{start_year}to{end_year}.nc"
-    # if file_path is not None:
-    #     combined_data.to_netcdf(file_path)
+    datasets = []
+    for year in range(start_year, end_year + 1):
+        file_path = f"./data/{location}_{height}x{width}_{year}.nc"
+        print(file_path)
+        try:
+            ds = xr.load_dataset(file_path)
+            # Convert xarray DataSet to a (bands, t, x, y) DataArray
+            data = ds[["B04", "B03", "B02"]].to_array(dim="bands")
+
+            for i in range(0, data.sizes["t"]):
+                # Convert to Grayscale
+                weights = xr.DataArray([0.2989, 0.5870, 0.1140], dims=["bands"])
+                grayscale = (data[{"t": i}] * weights).sum(dim="bands")
+
+                # Determine histogram
+                grayscale_np = grayscale.values.flatten()
+                grayscale_np = grayscale_np / 10000
+                grayscale_np = grayscale_np * 255
+                hist_values, bin_edges = np.histogram(grayscale_np, bins=255, range=(0, 255))
+
+                # If histogram has too much white (cloud) don't include
+                if np.sum(hist_values[70:254]) > data.shape[-2]*data.shape[-1]*0.05:
+                    print("Too much cloud")
+                    continue
+
+                # If any NaN don't include:
+                if hist_values[0] > 30:
+                    print("Contained NaN")
+                    continue
+
+                # If made it through checks then make representative of year and move on
+                datasets.append(ds[{"t": i}])
+                print("Picture Accepted")
+                break
+
+            # Check if year was added, if not print error
+
+            os.remove(file_path)
+
+        except FileNotFoundError:
+            print(f"Missing {year}")
+
+    combined_data = xr.concat(datasets, dim="t")
+    file_path = f"./data/{location}_{height}x{width}_{start_year}to{end_year}.nc"
+    if file_path is not None:
+        combined_data.to_netcdf(file_path)
 
 # ---------------- Main Execution ----------------
 

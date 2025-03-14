@@ -8,12 +8,14 @@ import math
 BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "B11", "B12"]
 
 def normalise_band(band):
-    band = band - np.nanmin(band)
+    # band = band - np.nanmin(band)
     # band = np.clip(band, a_min=0, a_max=5000)
-    band = band / np.nanmax(band)
-    # band = band/5000
+    # band = band / np.nanmax(band)
+    band /= 2000
     band = np.nan_to_num(band, nan=0)
-    return (band * 255).astype(np.uint8)
+    band *= 255
+    band = np.clip(band, 0, 255)
+    return band.astype(np.uint8)
 
 if __name__ == "__main__":
     file_path = 'data/Glasgow_3x3_2016to2020.nc'
