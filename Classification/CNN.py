@@ -67,6 +67,35 @@ print(f"Loaded {len(image_paths)} images across {len(class_names)} classes.")
 # Convert labels to categorical format
 labels = to_categorical(labels, num_classes=len(class_names))
 
+
+# Function to compute mean and std for each color channel
+def compute_dataset_statistics(image_paths):
+    r_channel, g_channel, b_channel = [], [], []
+
+    for img_path in image_paths:
+        img = tf.io.read_file(img_path)
+        img = tf.image.decode_jpeg(img, channels=3)
+        img = tf.image.resize(img, [64, 64])
+        img = img / 255.0  # Normalize
+
+        img_np = img.numpy()
+        r_channel.append(img_np[:, :, 0].flatten())
+        g_channel.append(img_np[:, :, 1].flatten())
+        b_channel.append(img_np[:, :, 2].flatten())
+
+    r_channel, g_channel, b_channel = np.concatenate(r_channel), np.concatenate(g_channel), np.concatenate(b_channel)
+    return (np.mean(r_channel), np.std(r_channel)), (np.mean(g_channel), np.std(g_channel)), (
+    np.mean(b_channel), np.std(b_channel))
+
+
+train_stats = compute_dataset_statistics(image_paths)
+
+print("Training Dataset Mean and Std:")
+print(f"Red: Mean={train_stats[0][0]:.4f}, Std={train_stats[0][1]:.4f}")
+print(f"Green: Mean={train_stats[1][0]:.4f}, Std={train_stats[1][1]:.4f}")
+print(f"Blue: Mean={train_stats[2][0]:.4f}, Std={train_stats[2][1]:.4f}")
+
+
 # Train-Test Split
 print("Splitting data into training and testing sets...")
 X_train_paths, X_test_paths, y_train, y_test = train_test_split(image_paths, labels, test_size=0.2, random_state=1, stratify=labels)
