@@ -36,7 +36,7 @@ class App(QMainWindow):
         centre_panel = self.create_centre_layout()
         right_panel = self.create_right_panel()
 
-        main_layout.addLayout(left_panel, 2)
+        main_layout.addLayout(left_panel, 1)
         main_layout.addLayout(centre_panel, 5)
         main_layout.addLayout(right_panel, 3)
 
@@ -230,21 +230,23 @@ class App(QMainWindow):
         return container
 
     def update_distribution_graph(self):
-        self.calculate_distribution()
-        self.ax.clear()
-        self.ax.barh(self.class_labels, self.percentages,
-                     color=self.class_colours)
-        self.ax.set_xlabel("Percentage (%)")
-        self.ax.set_ylabel("Classes")
-        self.ax.set_title("Distribution of Classes")
-        self.canvas.draw()
+        if self.class_map != None:
+            self.calculate_distribution()
+            self.ax.clear()
+            self.ax.barh(self.class_labels, self.percentages,
+                         color=self.class_colours)
+            self.ax.set_xlabel("Percentage (%)")
+            self.ax.set_ylabel("Classes")
+            self.ax.set_title("Distribution of Classes")
+            self.canvas.draw()
 
     def calculate_distribution(self):
         self.percentages = np.zeros(len(self.class_labels))
-        # size = np.array(self.class_map).shape[0]*np.array(self.class_map).shape[1]
-        # for i in range(len(self.class_map)):
-        #     for j in range(len(self.class_map[i])):
-        #         self.percentages[self.class_map[i][j]] += 1/size
+
+        size = np.array(self.class_map[self.slider.value()]).shape[0]*np.array(self.class_map[self.slider.value()]).shape[1]
+        for i in range(len(self.class_map[self.slider.value()])):
+            for j in range(len(self.class_map[self.slider.value()][i])):
+                self.percentages[int(self.class_map[self.slider.value()][i][j])] += 1/size
 
     def create_bar_chart(self, layout):
         figure = Figure()
@@ -270,13 +272,14 @@ class App(QMainWindow):
         self.update_scroll_bar()
         self.update_image()
         self.create_overlay()
-        # self.update_distribution_graph([30,20,10,80,20])
+
 
     def slider_value_changed(self):
         # print("Slider value changed")
         self.update_image()
         self.create_overlay()
         self.toggle_overlay()
+        self.update_distribution_graph()
 
     def toggle_overlay(self):
         if self.toggle_overlay_checkbox.isChecked():
@@ -419,6 +422,7 @@ class App(QMainWindow):
         self.load_button.setEnabled(True)
         self.create_overlay()
         self.toggle_overlay()
+        self.update_distribution_graph()
 
     def handle_classification_result(self,class_map):
         self.class_map = class_map

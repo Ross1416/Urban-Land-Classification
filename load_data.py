@@ -66,7 +66,7 @@ def classify(model, data, class_labels):
 
                 # Get the predicted class index
                 predicted_class = np.argmax(predictions, axis=1)[0]
-                class_map_year[int(i/64)][int(j/64)] = predicted_class
+                class_map_year[int(i/64)][int(j/64)] = int(predicted_class)
                 # predicted_label = class_labels[predicted_class]
 
                 # For testing display cropped image
