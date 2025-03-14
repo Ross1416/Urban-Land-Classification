@@ -21,22 +21,14 @@ class App(QMainWindow):
         self.setWindowTitle("Urban Land Classification")
         self.setGeometry(100, 100, 1200, 700)
 
-        # Test overlay colours
-        # self.class_colours = {
-        #     "Trees": QColor(0, 255, 0, 100),  # Green (0)
-        #     "Farm Land": QColor(255, 255, 0, 100),  # Yellow (1)
-        #     "Residential": QColor(255, 0, 0, 100),  # Red (2)
-        #     "Industrial": QColor(128, 128, 128, 100),  # Gray (3)
-        #     "Water": QColor(0, 0, 255, 100)  # Blue (4)
-        # }
         self.dataset = None
-        # Test overlay colours
+
         self.class_colours = {
-            "Trees": "Green",  # Green (0)
-            "Farm Land": "Yellow",  # Yellow (1)
-            "Residential": "Red",  # Red (2)
-            "Industrial": "Gray",  # Gray (3)
-            "Water": "Blue"  # Blue (4)
+            "Trees": (141,106,159),
+            "Farm Land": (197,203,211),
+            "Residential": (221,164,72),
+            "Industrial": (187,52,47),
+            "Water": (140,188,185)
         }
 
         self.class_map = [
@@ -226,7 +218,7 @@ class App(QMainWindow):
         for i in range(len(self.class_colours)):
             layout.addWidget(QLabel(list(self.class_colours.keys())[i]),i,1)
             pixmap = QPixmap(64,64)
-            colour = QColor(list(self.class_colours.values())[i])
+            colour = QColor(*list(self.class_colours.values())[i])
             # colour.setAlpha(100)
             pixmap.fill(colour)
             label = QLabel()
@@ -247,8 +239,9 @@ class App(QMainWindow):
     def update_distribution_graph(self):
         self.calculate_distribution()
         self.ax.clear()
+        normalized_colors = [(r / 255, g / 255, b / 255) for r, g, b in self.class_colours.values()]
         self.ax.barh(list(self.class_colours.keys()), self.percentages,
-                     color=list(self.class_colours.values()))
+                     color=normalized_colors)
         self.ax.set_xlabel("Percentage (%)")
         self.ax.set_ylabel("Classes")
         self.ax.set_title("Distribution of Classes")
@@ -271,7 +264,8 @@ class App(QMainWindow):
         figure = Figure()
         self.canvas = FigureCanvas(figure)
         self.ax = figure.add_subplot(111)
-        self.ax.barh(list(self.class_colours.keys()), np.zeros(len(self.class_colours)),color=list(self.class_colours.values()))
+        normalized_colors = [(r / 255, g / 255, b / 255) for r, g, b in self.class_colours.values()]
+        self.ax.barh(list(self.class_colours.keys()), np.zeros(len(self.class_colours)),color=normalized_colors)
         self.ax.set_xlabel("Percentage (%)")
         self.ax.set_ylabel("Classes")
         self.ax.set_title("Distribution of Classes")
@@ -296,8 +290,8 @@ class App(QMainWindow):
 
     def slider_value_changed(self):
         # print("Slider value changed")
-        self.create_overlay()
         self.update_image()
+        self.create_overlay()
         self.toggle_overlay()
 
     def toggle_overlay(self):
@@ -350,7 +344,7 @@ class App(QMainWindow):
 
         for i in range(len(self.class_map)):
             for j in range(len(self.class_map[i])):
-                colour = QColor(list(self.class_colours.values())[self.class_map[i][j]])
+                colour = QColor(*list(self.class_colours.values())[self.class_map[i][j]])
                 colour.setAlpha(100)
                 painter.fillRect(j * BLOCK_SIZE, i * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, colour)
 
