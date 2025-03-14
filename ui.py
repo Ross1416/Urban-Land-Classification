@@ -279,7 +279,7 @@ class App(QMainWindow):
         self.update_image()
         self.create_overlay()
         self.toggle_overlay()
-        self.update_distribution_graph()
+        # self.update_distribution_graph()
 
     def toggle_overlay(self):
         if self.toggle_overlay_checkbox.isChecked():
@@ -329,17 +329,12 @@ class App(QMainWindow):
         self.overlay_pixmap = self.pixmap.copy()
 
         if self.class_map != None:
-            # print(len(self.class_map))
-            # print(self.class_map[self.slider.value()][0])
-            # print(self.class_map[self.slider.value()][0][0])
-
             painter = QPainter(self.overlay_pixmap)
-            for i in range(len(self.class_map[self.slider.value()])):
-                for j in range(len(self.class_map[self.slider.value()][i])):
+            for i in range(len(self.class_map[self.slider.value()])-1):
+                for j in range(len(self.class_map[self.slider.value()][i])-1):
                     colour = QColor(self.class_colours[int(self.class_map[self.slider.value()][i][j])])
                     colour.setAlpha(180)
                     painter.fillRect(j * BLOCK_SIZE, i * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, colour)
-
             painter.end()
 
     def download_button_clicked(self):
@@ -423,7 +418,7 @@ class App(QMainWindow):
         self.load_button.setEnabled(True)
         self.create_overlay()
         self.toggle_overlay()
-        self.update_distribution_graph()
+        # self.update_distribution_graph()
 
     def handle_classification_result(self,class_map):
         self.class_map = class_map
@@ -436,7 +431,7 @@ BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "
 MAX_CLOUD_COVER = 30
 DATA_PATH = "./data/"
 DATA_EXTENSION = ".nc"
-BLOCK_SIZE = 64
+BLOCK_SIZE = 1
 class_labels = [
         "Annual Crop", "Forest", "Herbaceous Vegetation", "Highway",
         "Industrial", "Pasture", "Permanent Crop", "Residential",
