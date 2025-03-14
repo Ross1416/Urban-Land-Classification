@@ -56,24 +56,28 @@ def normalise_band(band):
     band = np.nan_to_num(band, nan=0)
     return (band * 255).astype(np.uint8)
 
-def download_dataset(north, south, east, west, bands, cloud_cover, save_path, year):
+def download_dataset(location, width, height, north, south, east, west, bands, cloud_cover, start_year, end_year):
     con = openeo.connect("openeo.dataspace.copernicus.eu")
     con.authenticate_oidc()
 
-    # Generate time ranges for March of each year from 2014 to 2024
-    temporal_extent = [f"{year}-04-01", f"{year}-06-28"]
-    print(temporal_extent)
+    for year in range(start_year, end_year + 1):
+        saveLocation = f"./data/{location}_{height}x{width}_{year}.nc"
+        print(saveLocation)
 
-    datacube = con.load_collection(
-        "SENTINEL2_L2A",
-        spatial_extent={"west": west, "south": south, "east": east, "north": north},
-        temporal_extent=temporal_extent,
-        bands=bands,
-        max_cloud_cover=cloud_cover,
-    )
+        # Generate time ranges for March of each year from 2014 to 2024
+        temporal_extent = [f"{year}-04-01", f"{year}-06-28"]
+        print(temporal_extent)
 
-    if save_path is not None:
-        datacube.download(save_path)
+        datacube = con.load_collection(
+            "SENTINEL2_L2A",
+            spatial_extent={"west": west, "south": south, "east": east, "north": north},
+            temporal_extent=temporal_extent,
+            bands=bands,
+            max_cloud_cover=cloud_cover,
+        )
+
+        if saveLocation is not None:
+            datacube.download(saveLocation)
 
     return datacube
 
@@ -129,10 +133,10 @@ def combine_dataset(location, height, width, start_year, end_year):
 # ---------------- Main Execution ----------------
 
 if __name__ == "__main__":
-    location = 'Glasgow'
-    width = 3
-    height = 3
-    years = range(2016, 2020+1)
+    location = 'Francis Court, Dunfermline'
+    width = 1
+    height = 1
+    years = range(2020, 2024+1)
 
     mode = 1    # 0 = Download Datasets, 1 = Filter to get one image from each dataset
 

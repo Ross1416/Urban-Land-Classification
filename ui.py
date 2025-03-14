@@ -296,7 +296,9 @@ class App(QMainWindow):
 
     def slider_value_changed(self):
         # print("Slider value changed")
+        self.create_overlay()
         self.update_image()
+        self.toggle_overlay()
 
     def toggle_overlay(self):
         if self.toggle_overlay_checkbox.isChecked():
@@ -373,16 +375,13 @@ class App(QMainWindow):
         self.total_downloads = (self.end_year - self.start_year) + 1
         self.download_count = 0
 
-        for year in range(self.start_year,self.end_year+1):
-            saveLocation = f"./data/{self.location}_{self.height}x{self.width}_{year}.nc"
-            print(saveLocation)
+        worker = Worker(download_dataset, self.location, self.width, self.height, north, south, east, west, BANDS, MAX_CLOUD_COVER, self.start_year, self.end_year)  # Any other args, kwargs are passed to the run function
+        worker.signals.finished.connect(self.download_finished)
+        worker.signals.error.connect(self.download_error)
 
-            worker = Worker(download_dataset, north, south, east, west, BANDS, MAX_CLOUD_COVER, saveLocation, year)  # Any other args, kwargs are passed to the run function
-            worker.signals.finished.connect(self.download_finished)
-            worker.signals.error.connect(self.download_error)
+        # Execute
+        self.threadpool.start(worker)
 
-            # Execute
-            self.threadpool.start(worker)
     def download_error(self, err):
         # print("Download error")
         # print(type(err[0]))
@@ -397,17 +396,17 @@ class App(QMainWindow):
         self.download_button.setText("Download")
 
     def download_finished(self):
-        print("Download complete")
-        self.download_count +=1
+        print("Downloads complete")
+        # self.download_count +=1
 
-        if self.download_count >= self.total_downloads:
-            print("All downloads finished")
-            self.download_button.setText("Combining datasets...")
-            worker = Worker(combine_dataset,self.location, self.height, self.width, self.start_year, self.end_year)
-            # worker = Worker(combined_dataset)
-            worker.signals.finished.connect(self.combined_dataset_finished)
-            worker.signals.error.connect(self.combined_dataset_error)
-            self.threadpool.start(worker)
+        # if self.download_count >= self.total_downloads:
+        # print("All downloads finished")
+        self.download_button.setText("Combining datasets...")
+        worker = Worker(combine_dataset,self.location, self.height, self.width, self.start_year, self.end_year)
+        # worker = Worker(combined_dataset)
+        worker.signals.finished.connect(self.combined_dataset_finished)
+        worker.signals.error.connect(self.combined_dataset_error)
+        self.threadpool.start(worker)
 
     def combined_dataset_error(self,err):
         print("Combine error")
