@@ -36,6 +36,55 @@ def check_cloud(red, green, blue, width, height):
 
     return 0
 
+def classify(model, data, class_labels):
+    class_map = []
+    num_rows = math.floor(data[{"t": 0}].shape[1]/64)
+    num_cols = math.floor(data[{"t": 0}].shape[2]/64)
+
+    print(num_rows, num_cols)
+
+    for k in range(data.sizes["t"]):
+        # idImage = 0
+        class_map_year = np.zeros((num_rows, num_cols))
+        for i in range(0,len(data[{"t": 0}].values[0]), 64):
+            for j in range(0, len(data[{"t": 0}].values[0,0]), 64):
+                if i+64 > len(data[{"t": 0}].values[0]) or j+64 > len(data[{"t": 0}].values[0,0]):
+                    print("\nData out of range")
+                    continue
+
+                redArr = data[{"t": k}].values[0, i:i+64, j:j+64]
+                greenArr = data[{"t": k}].values[1, i:i + 64, j:j + 64]
+                blueArr = data[{"t": k}].values[2, i:i + 64, j:j + 64]
+
+                cnn_image = np.dstack([normalise_band_for_CNN(redArr),
+                                       normalise_band_for_CNN(greenArr),
+                                       normalise_band_for_CNN(blueArr)])
+                cnn_image = np.expand_dims(cnn_image, axis=0)
+
+                # Predict
+                predictions = model.predict(cnn_image)
+
+                # Get the predicted class index
+                predicted_class = np.argmax(predictions, axis=1)[0]
+                class_map_year[int(i/64)][int(j/64)] = predicted_class
+                # predicted_label = class_labels[predicted_class]
+
+                # For testing display cropped image
+                # rgb_image = np.dstack([normalise_band(redArr), normalise_band(greenArr), normalise_band(blueArr)])
+                # axes[idImage].imshow(rgb_image)
+                # axes[idImage].set_xticks([])
+                # axes[idImage].set_yticks([])
+                # axes[idImage].set_frame_on(False)
+                # axes[idImage].set_title(predicted_label, fontsize=8)
+                # idImage = idImage + 1
+
+        # plt.subplots_adjust(wspace=0, hspace=0)
+        # plt.show()
+
+        class_map.append(class_map_year)
+    return class_map
+
+
 if __name__ == "__main__":
     file_path = 'data/Stepps_3x3_2016to2021.nc'
 

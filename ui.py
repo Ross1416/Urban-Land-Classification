@@ -1,3 +1,4 @@
+from tensorflow import keras
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -14,28 +15,20 @@ import xarray as xr
 from UI_workers import *
 from time import sleep
 
+
 class App(QMainWindow):
-    def __init__(self):
+    def __init__(self, model_path, class_labels, class_colours):
         super().__init__()
         # Set main parameters
         self.setWindowTitle("Urban Land Classification")
         self.setGeometry(100, 100, 1200, 700)
 
         self.dataset = None
+        self.class_map = None
 
-        self.class_colours = {
-            "Trees": "#8D6A9F",
-            "Farm Land": "#C5CBD3",
-            "Residential": "#8CBCB9",
-            "Industrial": "#DDA448",
-            "Water": "#BB342F"
-        }
-
-        self.class_map = [
-            [0, 1, 2, 3],
-            [2, 4, 2, 3],
-            [0, 2, 4, 3],
-        ]
+        self.model = keras.models.load_model(model_path)
+        self.class_labels = class_labels
+        self.class_colours = class_colours
 
         # Set main layout
         main_layout = QHBoxLayout()
@@ -215,10 +208,10 @@ class App(QMainWindow):
     def create_legend_panel(self):
         layout = QGridLayout()
 
-        for i in range(len(self.class_colours)):
-            layout.addWidget(QLabel(list(self.class_colours.keys())[i]),i,1)
-            pixmap = QPixmap(64,64)
-            colour = QColor(list(self.class_colours.values())[i])
+        for i in range(len(self.class_labels)):
+            layout.addWidget(QLabel(self.class_labels[i]),i,1)
+            pixmap = QPixmap(20,20)
+            colour = QColor(self.class_colours[i])
             # colour.setAlpha(100)
             pixmap.fill(colour)
             label = QLabel()
@@ -237,34 +230,27 @@ class App(QMainWindow):
         return container
 
     def update_distribution_graph(self):
-        print(list(self.class_colours.values()))
         self.calculate_distribution()
         self.ax.clear()
-        self.ax.barh(list(self.class_colours.keys()), self.percentages,
-                     color=list(self.class_colours.values()))
+        self.ax.barh(self.class_labels, self.percentages,
+                     color=self.class_colours)
         self.ax.set_xlabel("Percentage (%)")
         self.ax.set_ylabel("Classes")
         self.ax.set_title("Distribution of Classes")
         self.canvas.draw()
 
     def calculate_distribution(self):
-        self.percentages = np.zeros(len(self.class_colours))
-        size = np.array(self.class_map).shape[0]*np.array(self.class_map).shape[1]
-        for i in range(len(self.class_map)):
-            for j in range(len(self.class_map[i])):
-                self.percentages[self.class_map[i][j]] += 1/size
-
-    def get_class_names(self):
-        return list(self.class_colours.keys())
-
-    def get_class_values(self):
-        return list(self.class_colours.values())
+        self.percentages = np.zeros(len(self.class_labels))
+        # size = np.array(self.class_map).shape[0]*np.array(self.class_map).shape[1]
+        # for i in range(len(self.class_map)):
+        #     for j in range(len(self.class_map[i])):
+        #         self.percentages[self.class_map[i][j]] += 1/size
 
     def create_bar_chart(self, layout):
         figure = Figure()
         self.canvas = FigureCanvas(figure)
         self.ax = figure.add_subplot(111)
-        self.ax.barh(list(self.class_colours.keys()), np.zeros(len(self.class_colours)),color=list(self.class_colours.values()))
+        self.ax.barh(self.class_labels, np.zeros(len(self.class_labels)),color=self.class_colours)
         self.ax.set_xlabel("Percentage (%)")
         self.ax.set_ylabel("Classes")
         self.ax.set_title("Distribution of Classes")
@@ -273,16 +259,15 @@ class App(QMainWindow):
     def load_btn_clicked(self):
         # Update image
         print("Load clicked")
-
         file_path = DATA_PATH+self.selection_dropdown.currentText()
         idx = file_path.find("_")
         idx = file_path.find("_", idx + 1)
         self.start_year = int(file_path[idx+1:idx+5])
         self.end_year = int(file_path[idx+7:idx+11])
 
-        self.update_scroll_bar()
-
         self.dataset = xr.load_dataset(file_path)
+        self.classify()
+        self.update_scroll_bar()
         self.update_image()
         self.create_overlay()
         # self.update_distribution_graph([30,20,10,80,20])
@@ -339,15 +324,20 @@ class App(QMainWindow):
     def create_overlay(self):
         """Draws the overlay on the image."""
         self.overlay_pixmap = self.pixmap.copy()
-        painter = QPainter(self.overlay_pixmap)
 
-        for i in range(len(self.class_map)):
-            for j in range(len(self.class_map[i])):
-                colour = QColor(list(self.class_colours.values())[self.class_map[i][j]])
-                colour.setAlpha(100)
-                painter.fillRect(j * BLOCK_SIZE, i * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, colour)
+        if self.class_map != None:
+            # print(len(self.class_map))
+            # print(self.class_map[self.slider.value()][0])
+            # print(self.class_map[self.slider.value()][0][0])
 
-        painter.end()
+            painter = QPainter(self.overlay_pixmap)
+            for i in range(len(self.class_map[self.slider.value()])):
+                for j in range(len(self.class_map[self.slider.value()][i])):
+                    colour = QColor(self.class_colours[int(self.class_map[self.slider.value()][i][j])])
+                    colour.setAlpha(180)
+                    painter.fillRect(j * BLOCK_SIZE, i * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, colour)
+
+            painter.end()
 
     def download_button_clicked(self):
         print("Downloading...")
@@ -411,14 +401,51 @@ class App(QMainWindow):
         self.update_data_selection()
         print("Combined dataset finished")
 
+    def classify(self):
+        self.load_button.setText("Classifying..")
+        self.load_button.setEnabled(False)
+        data = self.dataset[["B04", "B03", "B02"]].to_array(dim="bands")
+        # classify(self.model, data, self.class_labels)
+        worker = Worker(classify, self.model, data, self.class_labels)
+        worker.signals.finished.connect(self.finished_classifing)
+        worker.signals.error.connect(self.error_classifing)
+        worker.signals.result.connect(self.handle_classification_result)
+
+        self.threadpool.start(worker)
+
+    def finished_classifing(self):
+        print("Classification finished")
+        self.load_button.setText("Load")
+        self.load_button.setEnabled(True)
+        self.create_overlay()
+        self.toggle_overlay()
+
+    def handle_classification_result(self,class_map):
+        self.class_map = class_map
+
+    def error_classifing(self):
+        print("Classification error")
+
 # ---------------- Global Variables ----------------
 BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "B11", "B12"]
 MAX_CLOUD_COVER = 30
 DATA_PATH = "./data/"
 DATA_EXTENSION = ".nc"
 BLOCK_SIZE = 64
+class_labels = [
+        "Annual Crop", "Forest", "Herbaceous Vegetation", "Highway",
+        "Industrial", "Pasture", "Permanent Crop", "Residential",
+        "River", "Sea/Lake", "Cloud", "Undefined"
+    ]
+
+class_colours = ["#E57373", "#64B5F6", "#81C784", "#FFD54F",
+    "#BA68C8", "#F06292", "#4DB6AC", "#FF8A65",
+    "#DCE775", "#A1887F", "#7986CB", "#FFB74D"]
+
+model_path = "classification/eurosat_model_augmented.keras"
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = App()
+    window = App(model_path, class_labels, class_colours)
     window.show()
     sys.exit(app.exec())
