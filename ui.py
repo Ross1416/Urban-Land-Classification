@@ -24,11 +24,11 @@ class App(QMainWindow):
         self.dataset = None
 
         self.class_colours = {
-            "Trees": (141,106,159),
-            "Farm Land": (197,203,211),
-            "Residential": (221,164,72),
-            "Industrial": (187,52,47),
-            "Water": (140,188,185)
+            "Trees": "#8D6A9F",
+            "Farm Land": "#C5CBD3",
+            "Residential": "#8CBCB9",
+            "Industrial": "#DDA448",
+            "Water": "#BB342F"
         }
 
         self.class_map = [
@@ -218,7 +218,7 @@ class App(QMainWindow):
         for i in range(len(self.class_colours)):
             layout.addWidget(QLabel(list(self.class_colours.keys())[i]),i,1)
             pixmap = QPixmap(64,64)
-            colour = QColor(*list(self.class_colours.values())[i])
+            colour = QColor(list(self.class_colours.values())[i])
             # colour.setAlpha(100)
             pixmap.fill(colour)
             label = QLabel()
@@ -237,11 +237,11 @@ class App(QMainWindow):
         return container
 
     def update_distribution_graph(self):
+        print(list(self.class_colours.values()))
         self.calculate_distribution()
         self.ax.clear()
-        normalized_colors = [(r / 255, g / 255, b / 255) for r, g, b in self.class_colours.values()]
         self.ax.barh(list(self.class_colours.keys()), self.percentages,
-                     color=normalized_colors)
+                     color=list(self.class_colours.values()))
         self.ax.set_xlabel("Percentage (%)")
         self.ax.set_ylabel("Classes")
         self.ax.set_title("Distribution of Classes")
@@ -264,8 +264,7 @@ class App(QMainWindow):
         figure = Figure()
         self.canvas = FigureCanvas(figure)
         self.ax = figure.add_subplot(111)
-        normalized_colors = [(r / 255, g / 255, b / 255) for r, g, b in self.class_colours.values()]
-        self.ax.barh(list(self.class_colours.keys()), np.zeros(len(self.class_colours)),color=normalized_colors)
+        self.ax.barh(list(self.class_colours.keys()), np.zeros(len(self.class_colours)),color=list(self.class_colours.values()))
         self.ax.set_xlabel("Percentage (%)")
         self.ax.set_ylabel("Classes")
         self.ax.set_title("Distribution of Classes")
@@ -344,7 +343,7 @@ class App(QMainWindow):
 
         for i in range(len(self.class_map)):
             for j in range(len(self.class_map[i])):
-                colour = QColor(*list(self.class_colours.values())[self.class_map[i][j]])
+                colour = QColor(list(self.class_colours.values())[self.class_map[i][j]])
                 colour.setAlpha(100)
                 painter.fillRect(j * BLOCK_SIZE, i * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, colour)
 
