@@ -31,7 +31,7 @@ print("Enabled Mixed Precision Training")
 # Parameters
 np.random.seed(1)
 optimizer_algorithm = Adam(learning_rate=0.00003)
-number_epoch = 100
+number_epoch = 200
 batch_length = 16
 show_inter_results = 1
 num_rows = 64
@@ -93,12 +93,12 @@ def augment_image(image, label):
     image = tf.image.random_hue(image, max_delta=0.1)
     image = tf.clip_by_value(image, 0.0, 1.0)
 
-    # Random Gaussian noise (destroys brightness dependency)
-    noise = tf.random.normal(shape=tf.shape(image), mean=0.0, stddev=0.001)
+    # Random Gaussian noise
+    noise = tf.random.normal(shape=tf.shape(image), mean=0.0, stddev=0.01)
     image = tf.clip_by_value(image + noise, 0.0, 1.0)
 
-    # Randomly convert to grayscale (reduces color dependency)
-    if tf.random.uniform([]) < 0.5:  # 50% chance
+    # Randomly convert to grayscale
+    if tf.random.uniform([]) < 0.3:  # 50% chance
         image = tf.image.rgb_to_grayscale(image)
         image = tf.image.grayscale_to_rgb(image)
 
