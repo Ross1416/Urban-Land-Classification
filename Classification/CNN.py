@@ -31,7 +31,7 @@ print("Enabled Mixed Precision Training")
 # Parameters
 np.random.seed(1)
 optimizer_algorithm = Adam(learning_rate=0.00003)
-number_epoch = 200
+number_epoch = 100
 batch_length = 16
 show_inter_results = 1
 num_rows = 64
@@ -67,35 +67,6 @@ print(f"Loaded {len(image_paths)} images across {len(class_names)} classes.")
 # Convert labels to categorical format
 labels = to_categorical(labels, num_classes=len(class_names))
 
-
-# Function to compute mean and std for each color channel
-def compute_dataset_statistics(image_paths):
-    r_channel, g_channel, b_channel = [], [], []
-
-    for img_path in image_paths:
-        img = tf.io.read_file(img_path)
-        img = tf.image.decode_jpeg(img, channels=3)
-        img = tf.image.resize(img, [64, 64])
-        img = img / 255.0  # Normalize
-
-        img_np = img.numpy()
-        r_channel.append(img_np[:, :, 0].flatten())
-        g_channel.append(img_np[:, :, 1].flatten())
-        b_channel.append(img_np[:, :, 2].flatten())
-
-    r_channel, g_channel, b_channel = np.concatenate(r_channel), np.concatenate(g_channel), np.concatenate(b_channel)
-    return (np.mean(r_channel), np.std(r_channel)), (np.mean(g_channel), np.std(g_channel)), (
-    np.mean(b_channel), np.std(b_channel))
-
-
-train_stats = compute_dataset_statistics(image_paths)
-
-print("Training Dataset Mean and Std:")
-print(f"Red: Mean={train_stats[0][0]:.4f}, Std={train_stats[0][1]:.4f}")
-print(f"Green: Mean={train_stats[1][0]:.4f}, Std={train_stats[1][1]:.4f}")
-print(f"Blue: Mean={train_stats[2][0]:.4f}, Std={train_stats[2][1]:.4f}")
-
-
 # Train-Test Split
 print("Splitting data into training and testing sets...")
 X_train_paths, X_test_paths, y_train, y_test = train_test_split(image_paths, labels, test_size=0.2, random_state=1, stratify=labels)
@@ -112,6 +83,7 @@ def parse_image(img_path, label):
     img = img / 255.0  # Normalize
     return img, label
 
+
 def augment_image(image, label):
     image = tf.image.random_flip_left_right(image)
     image = tf.image.random_flip_up_down(image)
@@ -120,8 +92,17 @@ def augment_image(image, label):
     image = tf.image.random_saturation(image, lower=0.6, upper=1.5)
     image = tf.image.random_hue(image, max_delta=0.1)
     image = tf.clip_by_value(image, 0.0, 1.0)
-    return image, label
 
+    # Random Gaussian noise (destroys brightness dependency)
+    noise = tf.random.normal(shape=tf.shape(image), mean=0.0, stddev=0.001)
+    image = tf.clip_by_value(image + noise, 0.0, 1.0)
+
+    # Randomly convert to grayscale (reduces color dependency)
+    if tf.random.uniform([]) < 0.5:  # 50% chance
+        image = tf.image.rgb_to_grayscale(image)
+        image = tf.image.grayscale_to_rgb(image)
+
+    return image, label
 
 def build_dataset(image_paths, labels, batch_size=20, augment=True):
     dataset = tf.data.Dataset.from_tensor_slices((image_paths, labels))
@@ -215,7 +196,7 @@ training_time = time.time() - start_train_time
 print(f"Training completed in {training_time:.2f} seconds.")
 
 print("Saving the trained model...")
-model.save("eurosat_model_augmented.keras")
+model.save("eurosat_model_augmented_2.keras")
 print("Model saved successfully.")
 
 # Evaluate Model
