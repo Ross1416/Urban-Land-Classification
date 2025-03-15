@@ -250,10 +250,9 @@ class App(QMainWindow):
 
     def calculate_distribution(self):
         self.percentages = np.zeros(len(self.class_labels))
-
-        size = np.array(self.class_map[self.slider.value()]).shape[0]*np.array(self.class_map[self.slider.value()]).shape[1]
-        for i in range(len(self.class_map[self.slider.value()])):
-            for j in range(len(self.class_map[self.slider.value()][i])):
+        size = (np.array(self.class_map[self.slider.value()]).shape[0]-1)*(np.array(self.class_map[self.slider.value()]).shape[1]-1)
+        for i in range(len(self.class_map[self.slider.value()])-1):
+            for j in range(len(self.class_map[self.slider.value()][i])-1):
                 self.percentages[int(self.class_map[self.slider.value()][i][j])] += 1/size
 
     def create_bar_chart(self, layout):
@@ -288,7 +287,7 @@ class App(QMainWindow):
         self.update_image()
         self.create_overlay()
         self.toggle_overlay()
-        # self.update_distribution_graph()
+        self.update_distribution_graph()
 
     def toggle_overlay(self):
         if self.toggle_overlay_checkbox.isChecked():
@@ -349,6 +348,7 @@ class App(QMainWindow):
     def download_button_clicked(self):
         print("Downloading...")
         self.download_button.setEnabled(False)
+        self.download_button.setText("Downloading...")
         self.download_button.setText("Downloading...")
         print("button changed")
         self.location = self.location_input.text()
@@ -428,7 +428,7 @@ class App(QMainWindow):
         self.load_button.setEnabled(True)
         self.create_overlay()
         self.toggle_overlay()
-        # self.update_distribution_graph()
+        self.update_distribution_graph()
 
     def handle_classification_result(self,class_map):
         self.class_map = class_map
