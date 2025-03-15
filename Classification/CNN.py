@@ -83,6 +83,7 @@ def parse_image(img_path, label):
     img = img / 255.0  # Normalize
     return img, label
 
+
 def augment_image(image, label):
     image = tf.image.random_flip_left_right(image)
     image = tf.image.random_flip_up_down(image)
@@ -91,8 +92,17 @@ def augment_image(image, label):
     image = tf.image.random_saturation(image, lower=0.6, upper=1.5)
     image = tf.image.random_hue(image, max_delta=0.1)
     image = tf.clip_by_value(image, 0.0, 1.0)
-    return image, label
 
+    # Random Gaussian noise
+    noise = tf.random.normal(shape=tf.shape(image), mean=0.0, stddev=0.01)
+    image = tf.clip_by_value(image + noise, 0.0, 1.0)
+
+    # Randomly convert to grayscale
+    if tf.random.uniform([]) < 0.3:  # 50% chance
+        image = tf.image.rgb_to_grayscale(image)
+        image = tf.image.grayscale_to_rgb(image)
+
+    return image, label
 
 def build_dataset(image_paths, labels, batch_size=20, augment=True):
     dataset = tf.data.Dataset.from_tensor_slices((image_paths, labels))
@@ -186,7 +196,7 @@ training_time = time.time() - start_train_time
 print(f"Training completed in {training_time:.2f} seconds.")
 
 print("Saving the trained model...")
-model.save("eurosat_model_augmented.keras")
+model.save("eurosat_model_augmented_2.keras")
 print("Model saved successfully.")
 
 # Evaluate Model
