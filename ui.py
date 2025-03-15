@@ -38,7 +38,7 @@ class App(QMainWindow):
 
         main_layout.addLayout(left_panel, 1)
         main_layout.addLayout(centre_panel, 5)
-        main_layout.addLayout(right_panel, 3)
+        main_layout.addLayout(right_panel, 2)
 
         container = QWidget()
         container.setLayout(main_layout)
@@ -90,6 +90,13 @@ class App(QMainWindow):
         self.selection_dropdown = QComboBox()
         self.selection_dropdown.addItems(["Option 1", "Option 2", "Option 3"])
         layout.addWidget(self.selection_dropdown)
+
+        stride_label = QLabel("Stride:")
+        self.stride_combo = QComboBox()
+        self.stride_combo.addItems(["8","16","32","64"])
+        self.stride_combo.setCurrentIndex(3)
+        layout.addWidget(stride_label)
+        layout.addWidget(self.stride_combo)
 
         self.load_button = QPushButton("Load")
         self.load_button.clicked.connect(self.load_btn_clicked)
@@ -207,12 +214,13 @@ class App(QMainWindow):
 
     def create_legend_panel(self):
         layout = QGridLayout()
+        layout.setAlignment(Qt.AlignHCenter)
 
         for i in range(len(self.class_labels)):
             layout.addWidget(QLabel(self.class_labels[i]),i,1)
             pixmap = QPixmap(20,20)
             colour = QColor(self.class_colours[i])
-            # colour.setAlpha(100)
+            colour.setAlpha(ALPHA)
             pixmap.fill(colour)
             label = QLabel()
             label.setPixmap(pixmap)
@@ -261,6 +269,7 @@ class App(QMainWindow):
     def load_btn_clicked(self):
         # Update image
         print("Load clicked")
+        self.class_map = None
         file_path = DATA_PATH+self.selection_dropdown.currentText()
         idx = file_path.find("_")
         idx = file_path.find("_", idx + 1)
@@ -333,7 +342,7 @@ class App(QMainWindow):
             for i in range(len(self.class_map[self.slider.value()])-1):
                 for j in range(len(self.class_map[self.slider.value()][i])-1):
                     colour = QColor(self.class_colours[int(self.class_map[self.slider.value()][i][j])])
-                    colour.setAlpha(180)
+                    colour.setAlpha(ALPHA)
                     painter.fillRect(j * BLOCK_SIZE, i * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, colour)
             painter.end()
 
@@ -404,8 +413,9 @@ class App(QMainWindow):
         self.load_button.setEnabled(False)
 
         data = self.dataset[["B04", "B03", "B02"]].to_array(dim="bands")
+        stride = int(self.stride_combo.currentText())
         # classify(self.model, data, self.class_labels)
-        worker = Worker(classify, self.model, data, self.class_labels)
+        worker = Worker(classify, self.model, data, self.class_labels, stride)
         worker.signals.finished.connect(self.finished_classifing)
         worker.signals.error.connect(self.error_classifing)
         worker.signals.result.connect(self.handle_classification_result)
@@ -432,6 +442,7 @@ MAX_CLOUD_COVER = 30
 DATA_PATH = "./data/"
 DATA_EXTENSION = ".nc"
 BLOCK_SIZE = 1
+ALPHA = 150
 class_labels = [
         "Annual Crop", "Forest", "Herbaceous Vegetation", "Highway",
         "Industrial", "Pasture", "Permanent Crop", "Residential",
@@ -440,10 +451,10 @@ class_labels = [
 
 class_colours = ["#E57373", "#64B5F6", "#81C784", "#FFD54F",
     "#BA68C8", "#F06292", "#4DB6AC", "#FF8A65",
-    "#DCE775", "#A1887F", "#7986CB", "#FFB74D"]
+    "#DCE775", "#A1887F", "#7986CB", "#4A4947"]
 
+# model_path = "classification/eurosat_model.keras"
 model_path = "classification/eurosat_model_augmented.keras"
-
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = App(model_path, class_labels, class_colours)

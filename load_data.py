@@ -12,10 +12,22 @@ import matplotlib.colors as mcolors
 BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "B11", "B12"]
 
 def normalise_band_for_CNN(band):
+    # method 1
     # band = band / 10000
+    # method 2
     # band = np.clip(band, 0, 2000)
     # band /= 2000
+    #method 3
     band = (band - np.min(band)) / (np.max(band) - np.min(band))
+    #method 4
+    # band = band / 2000
+    # band = np.nan_to_num(band, nan=0)
+    # band = (band * 255)
+    # band[band > 255] = 255
+    # band /= 255
+    # method 5
+    # band = band / 2000
+    # band = (band - np.min(band)) / (np.max(band) - np.min(band))
     return band
 
 def normalise_band(band):
@@ -39,13 +51,13 @@ def check_cloud(red, green, blue, width, height):
 
     return 0
 
-def classify(model, data, class_labels):
+def classify(model, data, class_labels, stride):
     class_map = []
 
     # Classify images for each year
     for k in range(data.sizes["t"]):
-        strideRows = 16
-        strideCols = 16
+        strideRows = stride
+        strideCols = stride
 
         # Create matrix for each pixel that keeps track of classes its been labelled
         classScores = np.zeros((
@@ -71,22 +83,22 @@ def classify(model, data, class_labels):
                 greenArr = data[{"t": k}].values[1, i:i + 64, j:j + 64]
                 blueArr = data[{"t": k}].values[2, i:i + 64, j:j + 64]
 
-                # Double check not too much cloud cover before NN
-                if check_cloud(redArr, greenArr, blueArr, 64, 64):
-                    # Too much cloud
-                    predicted_class = len(class_labels) - 2
-                else:
-                    # Classify patch
-                    cnn_image = np.dstack([normalise_band_for_CNN(redArr),
-                                           normalise_band_for_CNN(greenArr),
-                                           normalise_band_for_CNN(blueArr)])
-                    cnn_image = np.expand_dims(cnn_image, axis=0)
+                # # Double check not too much cloud cover before NN
+                # if check_cloud(redArr, greenArr, blueArr, 64, 64):
+                #     # Too much cloud
+                #     predicted_class = len(class_labels) - 2
+                # else:
+                # Classify patch
+                cnn_image = np.dstack([normalise_band_for_CNN(redArr),
+                                       normalise_band_for_CNN(greenArr),
+                                       normalise_band_for_CNN(blueArr)])
+                cnn_image = np.expand_dims(cnn_image, axis=0)
 
-                    # Predict
-                    predictions = model.predict(cnn_image)
+                # Predict
+                predictions = model.predict(cnn_image)
 
-                    # Get the predicted class index
-                    predicted_class = int(np.argmax(predictions, axis=1)[0])
+                # Get the predicted class index
+                predicted_class = int(np.argmax(predictions, axis=1)[0])
 
                 # Add to each pixel of patch that it was found to be class x
                 for rows in range(i, i + 64):
