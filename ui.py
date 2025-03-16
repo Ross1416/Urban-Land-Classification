@@ -269,11 +269,17 @@ class App(QMainWindow):
         # Update image
         print("Load clicked")
         self.class_map = None
+        self.ax.clear()
         file_path = DATA_PATH+self.selection_dropdown.currentText()
         idx = file_path.find("_")
         idx = file_path.find("_", idx + 1)
         self.start_year = int(file_path[idx+1:idx+5])
-        self.end_year = int(file_path[idx+7:idx+11])
+
+        try:
+            self.end_year = int(file_path[idx+7:idx+11])
+        except Exception as e:
+            print(e)
+            self.end_year = self.start_year
 
         self.dataset = xr.load_dataset(file_path)
         self.classify()
