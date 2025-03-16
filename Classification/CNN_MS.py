@@ -42,7 +42,11 @@ optimizer_algorithm = Adam(learning_rate=0.00003)
 number_epoch = 100
 batch_length = 16
 show_inter_results = 1
-num_rows, num_cols, num_bands = 64, 64, 13  # 13 bands for MS data
+num_rows, num_cols, num_bands = (
+    64,
+    64,
+    12,
+)  # 12 bands for MS data (excluding B10)
 
 # Regularization Parameters
 use_l1, use_l2 = True, True
@@ -50,7 +54,7 @@ l1_reg, l2_reg = 0.0002, 0.001
 
 # Define Data Path
 data_dir = "C:/Users/Chris/Desktop/EuroSAT/EuroSAT_MS"
-max_images_per_class = 100  # Limit dataset size
+max_images_per_class = 250  # Limit dataset size
 
 # Measure data loading time
 start_data_time = time.time()
@@ -78,6 +82,9 @@ for class_name in class_names:
                     image_array = np.transpose(
                         image_array, (1, 2, 0)
                     )  # Convert to (height, width, bands)
+                    image_array = np.delete(
+                        image_array, 10, axis=2
+                    )  # Remove B10
                 image_array = tf.image.resize(
                     image_array, (num_rows, num_cols)
                 ).numpy()
@@ -175,7 +182,7 @@ print(f"Training completed in {training_time:.2f} seconds.")
 
 # Save Model
 print("Saving the trained model...")
-model.save("eurosat_ms_model.keras")
+model.save("eurosat_ms_model_200.keras")
 print("Model saved successfully.")
 
 # Evaluate Model
