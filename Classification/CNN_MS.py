@@ -18,7 +18,7 @@ from tensorflow.keras.layers import (
     GlobalAveragePooling2D,
 )
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import ReduceLROnPlateau
+from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping
 from tensorflow.keras.regularizers import l1_l2
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
@@ -110,7 +110,12 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 # Learning Rate Scheduler
 lr_scheduler = ReduceLROnPlateau(
-    monitor="val_loss", factor=0.5, patience=2, verbose=1, min_lr=1e-6
+    monitor="val_loss", factor=0.5, patience=5, verbose=1, min_lr=1e-6
+)
+
+# Early Stopping
+early_stopping = EarlyStopping(
+    monitor="val_loss", patience=10, restore_best_weights=True, verbose=1
 )
 
 # Build Model
@@ -162,6 +167,7 @@ history = model.fit(
     batch_size=batch_length,
     verbose=show_inter_results,
     validation_data=(X_test, y_test),
+    callbacks=[lr_scheduler, early_stopping],
 )
 
 training_time = time.time() - start_train_time
