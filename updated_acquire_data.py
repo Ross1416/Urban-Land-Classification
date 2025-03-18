@@ -10,7 +10,7 @@ import requests
 import os
 
 # ---------------- Global Variables ----------------
-BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "B11", "B12"]
+BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09","B11", "B12"]
 MAX_CLOUD_COVER = 30
 
 # ---------------- Helper Functions ----------------
@@ -90,7 +90,8 @@ def combine_dataset(location, height, width, start_year, end_year):
         try:
             ds = xr.load_dataset(file_path)
             # Convert xarray DataSet to a (bands, t, x, y) DataArray
-            data = ds[["B04", "B03", "B02"]].to_array(dim="bands")
+            # data = ds[["B04", "B03", "B02"]].to_array(dim="bands")
+            data = ds[BANDS].to_array(dim="bands")
 
             for i in range(0, data.sizes["t"]):
                 # Convert to Grayscale

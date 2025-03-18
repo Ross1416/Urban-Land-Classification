@@ -17,7 +17,7 @@ from time import sleep
 
 
 class App(QMainWindow):
-    def __init__(self, model_path, class_labels, class_colours):
+    def __init__(self, class_labels, class_colours):
         super().__init__()
         # Set main parameters
         self.setWindowTitle("Urban Land Classification")
@@ -26,7 +26,7 @@ class App(QMainWindow):
         self.dataset = None
         self.class_map = None
 
-        self.model = keras.models.load_model(model_path)
+        # self.model = keras.models.load_model(model_path)
         self.class_labels = class_labels
         self.class_colours = class_colours
 
@@ -47,6 +47,7 @@ class App(QMainWindow):
         # Update
         self.create_data_folder()
         self.update_data_selection()
+        self.update_model_selection()
         self.create_overlay()
         self.update_distribution_graph()
 
@@ -87,9 +88,17 @@ class App(QMainWindow):
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignTop)
 
+        selection_label = QLabel("Data:")
         self.selection_dropdown = QComboBox()
         self.selection_dropdown.addItems(["Option 1", "Option 2", "Option 3"])
+        layout.addWidget(selection_label)
         layout.addWidget(self.selection_dropdown)
+
+        model_label = QLabel("Model:")
+        self.model_selection_dropdown = QComboBox()
+        self.model_selection_dropdown.addItems(["Option 1", "Option 2", "Option 3"])
+        layout.addWidget(model_label)
+        layout.addWidget(self.model_selection_dropdown)
 
         stride_label = QLabel("Stride:")
         self.stride_combo = QComboBox()
@@ -281,6 +290,7 @@ class App(QMainWindow):
             print(e)
             self.end_year = self.start_year
 
+        self.model = keras.models.load_model(f"{MODEL_PATH}/{self.model_selection_dropdown.currentText()}")
         self.dataset = xr.load_dataset(file_path)
         self.classify()
         self.update_scroll_bar()
@@ -313,6 +323,11 @@ class App(QMainWindow):
         files = [f for f in os.listdir(DATA_PATH) if f.endswith(DATA_EXTENSION)]
         self.selection_dropdown.clear()
         self.selection_dropdown.addItems(files)
+
+    def update_model_selection(self):
+        files = [f for f in os.listdir(MODEL_PATH) if f.endswith(MODEL_EXTENSION)]
+        self.model_selection_dropdown.clear()
+        self.model_selection_dropdown.addItems(files)
 
     def update_scroll_bar(self):
         self.slider.setMinimum(0)
@@ -418,15 +433,31 @@ class App(QMainWindow):
         self.load_button.setText("Classifying..")
         self.load_button.setEnabled(False)
 
-        data = self.dataset[["B04", "B03", "B02"]].to_array(dim="bands")
         stride = int(self.stride_combo.currentText())
-        # classify(self.model, data, self.class_labels)
-        worker = Worker(classify, self.model, data, self.class_labels, stride)
-        worker.signals.finished.connect(self.finished_classifing)
-        worker.signals.error.connect(self.error_classifing)
-        worker.signals.result.connect(self.handle_classification_result)
 
-        self.threadpool.start(worker)
+        if "_ms_" in self.model_selection_dropdown.currentText():
+            print("MS Classify")
+            try:
+                data = self.dataset[BANDS].to_array(dim="bands")
+                worker = Worker(classify_ms, self.model, data, self.class_labels, stride)
+
+                worker.signals.finished.connect(self.finished_classifing)
+                worker.signals.error.connect(self.error_classifing)
+                worker.signals.result.connect(self.handle_classification_result)
+
+                self.threadpool.start(worker)
+            except:
+                self.error_dialog.showMessage("Data download does not contain all 13 spectral bands. Therefore cannot be used with multispectral classification. Use RGB classifier instead")
+        else:
+            print("RGB Classify")
+            data = self.dataset[["B04", "B03", "B02"]].to_array(dim="bands")
+            worker = Worker(classify, self.model, data, self.class_labels, stride)
+            worker.signals.finished.connect(self.finished_classifing)
+            worker.signals.error.connect(self.error_classifing)
+            worker.signals.result.connect(self.handle_classification_result)
+
+            self.threadpool.start(worker)
+        # classify(self.model, data, self.class_labels)
 
     def finished_classifing(self):
         print("Classification finished")
@@ -443,10 +474,12 @@ class App(QMainWindow):
         print("Classification error")
 
 # ---------------- Global Variables ----------------
-BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "B11", "B12"]
+BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09","B11", "B12"]
 MAX_CLOUD_COVER = 30
 DATA_PATH = "./data/"
 DATA_EXTENSION = ".nc"
+MODEL_PATH = "./Classification/"
+MODEL_EXTENSION = ".keras"
 BLOCK_SIZE = 1
 ALPHA = 150
 class_labels = [
@@ -460,9 +493,9 @@ class_colours = ["#E57373", "#64B5F6", "#81C784", "#FFD54F",
     "#DCE775", "#A1887F", "#7986CB", "#4A4947"]
 
 # model_path = "classification/eurosat_model.keras"
-model_path = "classification/eurosat_model_augmented.keras"
+# model_path = "classification/eurosat_model_augmented.keras"
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = App(model_path, class_labels, class_colours)
+    window = App(class_labels, class_colours)
     window.show()
     sys.exit(app.exec())
