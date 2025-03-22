@@ -164,6 +164,7 @@ def classify_ms(model, data, class_labels, stride):
                 cnn_image = np.dstack(bands_arr)
                 print(cnn_image.shape)
                 cnn_image = np.expand_dims(cnn_image, axis=0)
+                print(cnn_image)
                 print(cnn_image.shape)
 
                 # Predict
@@ -312,6 +313,8 @@ if __name__ == "__main__":
                      normalise_band_for_CNN(blueArr, 0.4025, 0.1161)])
 
                     cnn_image = np.expand_dims(cnn_image, axis=0)
+
+                    print(cnn_image.shape)
 
                     # Predict
                     predictions = model.predict(cnn_image)

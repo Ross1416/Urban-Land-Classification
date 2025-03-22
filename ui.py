@@ -4,16 +4,9 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-import sys
-import os
-import numpy as np
-from updated_acquire_data import *
-from load_data import *
-import openeo
-import asyncio
 import xarray as xr
 from ui_workers import *
-from time import sleep
+from data import *
 
 
 class App(QMainWindow):
@@ -338,11 +331,11 @@ class App(QMainWindow):
         self.end_date_label.setText(str(self.end_year))
 
     def update_image(self):
-        data = self.dataset[["B04", "B03", "B02"]].to_array(dim="bands")
+        data = self.dataset[RGB_BANDS].to_array(dim="bands")
         redArr = data[{"t": self.slider.value()}].values[0,:,:]
         greenArr = data[{"t": self.slider.value()}].values[1, :,:]
         blueArr = data[{"t": self.slider.value()}].values[2, :,:]
-        rgb_image = np.dstack([normalise_band_for_CNN(redArr, 0.3398, 0.2037), normalise_band_for_CNN(greenArr, 0.3804, 0.1375), normalise_band_for_CNN(blueArr,0.4025, 0.1161)])
+        rgb_image = np.dstack([normalise_band(redArr, 0.3398, 0.2037), normalise_band(greenArr, 0.3804, 0.1375), normalise_band(blueArr,0.4025, 0.1161)])
         rgb_image = np.multiply(rgb_image,255).astype("uint8")
         height, width, channel = rgb_image.shape
         bytes_per_line = 3 * width
@@ -437,30 +430,27 @@ class App(QMainWindow):
         self.load_button.setEnabled(False)
 
         stride = int(self.stride_combo.currentText())
+        data = self.dataset[ALL_BANDS].to_array(dim="bands")
 
         if "_ms_" in self.model_selection_dropdown.currentText():
             print("MS Classify")
             try:
-                data = self.dataset[BANDS].to_array(dim="bands")
-                worker = Worker(classify_ms, self.model, data, self.class_labels, stride)
-
+                worker = Worker(classify, self.model, data, self.class_labels, BAND_NORMALISATION_VALUES, False, stride)
                 worker.signals.finished.connect(self.finished_classifing)
                 worker.signals.error.connect(self.error_classifing)
                 worker.signals.result.connect(self.handle_classification_result)
 
                 self.threadpool.start(worker)
             except:
-                self.error_dialog.showMessage("Data download does not contain all 13 spectral bands. Therefore cannot be used with multispectral classification. Use RGB classifier instead")
+                self.error_dialog.showMessage("Data download does not contain all 12 spectral bands. Therefore cannot be used with multispectral classification. Use RGB classifier instead")
         else:
             print("RGB Classify")
-            data = self.dataset[["B04", "B03", "B02"]].to_array(dim="bands")
-            worker = Worker(classify, self.model, data, self.class_labels, stride)
+            worker = Worker(classify, self.model, data, self.class_labels, BAND_NORMALISATION_VALUES, True, stride)
             worker.signals.finished.connect(self.finished_classifing)
             worker.signals.error.connect(self.error_classifing)
             worker.signals.result.connect(self.handle_classification_result)
 
             self.threadpool.start(worker)
-        # classify(self.model, data, self.class_labels)
 
     def finished_classifing(self):
         print("Classification finished")
@@ -476,27 +466,23 @@ class App(QMainWindow):
     def error_classifing(self):
         print("Classification error")
 
-# ---------------- Global Variables ----------------
-BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09","B11", "B12"]
-MAX_CLOUD_COVER = 30
+# ---------------- Global Variables ---------------- #
 DATA_PATH = "./data/"
 DATA_EXTENSION = ".nc"
 MODEL_PATH = "./Classification/"
 MODEL_EXTENSION = ".keras"
 BLOCK_SIZE = 1
 ALPHA = 150
+
 class_labels = [
         "Annual Crop", "Forest", "Herbaceous Vegetation", "Highway",
         "Industrial", "Pasture", "Permanent Crop", "Residential",
         "River", "Sea/Lake", "Cloud", "Undefined"
     ]
-
 class_colours = ["#E57373", "#64B5F6", "#81C784", "#FFD54F",
     "#BA68C8", "#F06292", "#4DB6AC", "#FF8A65",
     "#DCE775", "#A1887F", "#7986CB", "#4A4947"]
 
-# model_path = "classification/eurosat_model.keras"
-# model_path = "classification/eurosat_model_augmented.keras"
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = App(class_labels, class_colours)
