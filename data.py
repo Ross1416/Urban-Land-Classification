@@ -5,6 +5,7 @@ import math
 import requests
 import openeo
 import xarray as xr
+import cv2
 
 def normalise_band(band, mean, std):
     band = np.nan_to_num(band, nan=0)
@@ -12,6 +13,13 @@ def normalise_band(band, mean, std):
     band = ((band-np.mean(band))/(np.std(band)+ 1e-8))*std+mean
     band = np.clip(band,0,1)
     return band
+
+def interpolate_image(img, spatial_resolution):
+    """Interpolate input images to correct spatial resolution."""
+    scale_factor = int(spatial_resolution / 10)
+    new_size = (int(img.shape[0] * scale_factor), int(img.shape[1] * scale_factor))
+    resized_img = cv2.resize(img, new_size, interpolation=cv2.INTER_CUBIC)
+    return resized_img
 
 def classify(model, data, class_labels, normalisation_values, RGB_only=False, stride=64):
     class_map = []
@@ -222,4 +230,30 @@ BAND_NORMALISATION_VALUES = {
 
 MAX_CLOUD_COVER = 30
 if __name__ == "__main__":
-    pass
+    import matplotlib
+    import matplotlib.pyplot as plt
+    from tensorflow import keras
+
+    matplotlib.use('qtagg')
+
+
+    MODEL_PATH = "./Classification/eurosat_model.keras"
+    FILE_PATH = "./data/Arles_3x3_2016to2023.nc"
+
+    model = keras.models.load_model(MODEL_PATH)
+    dataset = xr.load_dataset(FILE_PATH)
+
+    arr = []
+
+    for i, band in enumerate(ALL_BANDS):
+        data = dataset[band]
+        data = data[{"t": 0}].values[0:64, 0:64]
+        arr.append(data)
+
+    fig, axes = plt.subplots(1, 12, figsize=(12, 9))
+    for i, ax in enumerate(axes.flat):
+        ax.imshow(arr[i], cmap='gray')  # Use cmap='gray' for grayscale images
+        ax.axis('off')  # Remove axes for a cleaner look
+
+    plt.tight_layout()
+    plt.show()

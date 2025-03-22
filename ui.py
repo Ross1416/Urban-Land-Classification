@@ -7,7 +7,10 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import xarray as xr
 from ui_workers import *
 from data import *
+# from load_data import classify
 
+import numpy as np
+import os
 
 class App(QMainWindow):
     def __init__(self, class_labels, class_colours):
@@ -271,7 +274,6 @@ class App(QMainWindow):
 
     def load_btn_clicked(self):
         # Update image
-        print("Load clicked")
         self.class_map = None
         self.ax.clear()
         file_path = DATA_PATH+self.selection_dropdown.currentText()
@@ -410,7 +412,6 @@ class App(QMainWindow):
         # print("All downloads finished")
         self.download_button.setText("Combining datasets...")
         worker = Worker(combine_dataset,self.location, self.height, self.width, self.start_year, self.end_year)
-        # worker = Worker(combined_dataset)
         worker.signals.finished.connect(self.combined_dataset_finished)
         worker.signals.error.connect(self.combined_dataset_error)
         self.threadpool.start(worker)
@@ -446,6 +447,9 @@ class App(QMainWindow):
         else:
             print("RGB Classify")
             worker = Worker(classify, self.model, data, self.class_labels, BAND_NORMALISATION_VALUES, True, stride)
+            # TODO: Using old method seems better - find out why
+            # data = self.dataset[RGB_BANDS].to_array(dim="bands")
+            # worker = Worker(classify, self.model, data, self.class_labels, stride)
             worker.signals.finished.connect(self.finished_classifing)
             worker.signals.error.connect(self.error_classifing)
             worker.signals.result.connect(self.handle_classification_result)
