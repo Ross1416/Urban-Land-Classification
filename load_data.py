@@ -1,36 +1,24 @@
-
-import xarray as xr
+import cv2
+from tensorflow import keras
+import matplotlib
 import matplotlib.pyplot as plt
+import xarray as xr
 import numpy as np
-
+matplotlib.use('qtagg')
 import math
 
-from tensorflow import keras
+
 
 import matplotlib.colors as mcolors
 
 BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09","B11", "B12"]
 
 def normalise_band_for_CNN(band, mean, std):
-    # method 1
-    # band = band / 10000
-    # method 2
-    # band = np.clip(band, 0, 2000)
-    # band /= 2000
-    #method 3
-    # band = (band - np.min(band)) / (np.max(band) - np.min(band))
-    #method 4
-    # band = band / 2000
-    # band = np.nan_to_num(band, nan=0)
-    # band = (band * 255)
-    # band[band > 255] = 255
-    # band /= 255
-    # method 5
-    # band = band / 2000
-    # band = (band - np.min(band)) / (np.max(band) - np.min(band))
-    # method 6
-    band = ((band-np.mean(band))/np.std(band))*std+mean
+    band = np.nan_to_num(band, nan=0)
+    band = ((band-np.mean(band))/np.std(band)+ 1e-8)*std+mean
+    band = np.clip(band,0,1)
     return band
+
 
 def normalise_band(band):
     band = band / 2000
@@ -260,7 +248,8 @@ def classify_basic(model, data, class_labels):
 
 
 if __name__ == "__main__":
-    file_path = 'data/Stepps_3x3_2016to2021.nc'
+    # file_path = 'data/Stepps_3x3_2016to2021.nc'
+    file_path = 'data/Arles_3x3_2016to2023.nc'
 
     # Combine Dataset
     dataset = xr.load_dataset(file_path)
@@ -315,9 +304,13 @@ if __name__ == "__main__":
                     # Too much cloud
                     predicted_class = len(class_labels)-2
                 else:
-                    cnn_image = np.dstack([normalise_band_for_CNN(redArr),
-                                           normalise_band_for_CNN(greenArr),
-                                           normalise_band_for_CNN(blueArr)])
+                    # cnn_image = np.dstack([normalise_band_for_CNN(redArr),
+                    #                        normalise_band_for_CNN(greenArr),
+                    #                        normalise_band_for_CNN(blueArr)])
+                    cnn_image = np.dstack([normalise_band_for_CNN(redArr, 0.3398, 0.2037),
+                     normalise_band_for_CNN(greenArr, 0.3804, 0.1375),
+                     normalise_band_for_CNN(blueArr, 0.4025, 0.1161)])
+
                     cnn_image = np.expand_dims(cnn_image, axis=0)
 
                     # Predict
