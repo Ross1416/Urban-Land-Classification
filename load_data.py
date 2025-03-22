@@ -11,14 +11,14 @@ import matplotlib.colors as mcolors
 
 BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09","B11", "B12"]
 
-def normalise_band_for_CNN(band):#, mean, std):
+def normalise_band_for_CNN(band, mean, std):
     # method 1
     # band = band / 10000
     # method 2
     # band = np.clip(band, 0, 2000)
     # band /= 2000
     #method 3
-    band = (band - np.min(band)) / (np.max(band) - np.min(band))
+    # band = (band - np.min(band)) / (np.max(band) - np.min(band))
     #method 4
     # band = band / 2000
     # band = np.nan_to_num(band, nan=0)
@@ -29,7 +29,7 @@ def normalise_band_for_CNN(band):#, mean, std):
     # band = band / 2000
     # band = (band - np.min(band)) / (np.max(band) - np.min(band))
     # method 6
-    # band = ((band-np.mean(band))/np.std(band))*std+mean
+    band = ((band-np.mean(band))/np.std(band))*std+mean
     return band
 
 def normalise_band(band):
@@ -91,9 +91,9 @@ def classify(model, data, class_labels, stride):
                 #     predicted_class = len(class_labels) - 2
                 # else:
                 # Classify patch
-                cnn_image = np.dstack([normalise_band_for_CNN(redArr),# 0.3398, 0.2037),
-                                       normalise_band_for_CNN(greenArr),# 0.3804, 0.1375),
-                                       normalise_band_for_CNN(blueArr)]),# 0.4025, 0.1161)])
+                cnn_image = np.dstack([normalise_band_for_CNN(redArr, 0.3398, 0.2037),
+                                       normalise_band_for_CNN(greenArr, 0.3804, 0.1375),
+                                       normalise_band_for_CNN(blueArr,0.4025, 0.1161)])
                 print(cnn_image.shape)
                 cnn_image = np.expand_dims(cnn_image, axis=0)
                 print(cnn_image.shape)
