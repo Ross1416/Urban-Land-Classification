@@ -1,157 +1,258 @@
-# Import Tensorflow, keras, scikit-learn, matplotlib - latest versions
-# Python3.12
-# Download eurosat dataset - change filepath line 33
-try:
-    import numpy as np
-    import os
-    import gc
-    import tensorflow
-    from tensorflow.keras.utils import to_categorical
-    from tensorflow.keras.models import Sequential
-    from tensorflow.keras.layers import (
-        Conv2D,
-        MaxPooling2D,
-        Dense,
-        Flatten,
-        Dropout,
-    )
-    from tensorflow.keras.optimizers import Adam
-    from sklearn.model_selection import train_test_split
-    from tensorflow.keras import backend as krs
-    from PIL import Image
-    from sklearn.preprocessing import LabelEncoder
-    import matplotlib.pyplot as plt
+# Libraries
+import numpy as np
+import os
+import time
+import tensorflow as tf
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dense, Flatten, Dropout, BatchNormalization, GlobalAveragePooling2D
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras.mixed_precision import set_global_policy
+from tensorflow.keras.regularizers import l1_l2
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import confusion_matrix, classification_report
+import seaborn as sns
+import matplotlib.pyplot as plt
 
-    print("All modules imported successfully.")
-except ImportError as e:
-    print(f"An error occurred: {e}")
+print("Hardware: ", tf.config.list_physical_devices('GPU'))
 
+print("Starting script...")
+
+# Start measuring total execution time
+total_start_time = time.time()
+
+# Enable Apple Silicon Acceleration
+set_global_policy('mixed_float16')
+print("Enabled Mixed Precision Training")
 
 # Parameters
 np.random.seed(1)
-optimizer_loss_fun = "categorical_crossentropy"
-optimizer_algorithm = Adam(learning_rate=0.001)
-number_epoch = 100
-batch_length = 20
+optimizer_algorithm = Adam(learning_rate=0.00003)
+number_epoch = 200
+batch_length = 16
 show_inter_results = 1
+num_rows = 64
+num_cols = 64
 
-# Define data path
-data_dir = "EuroSAT/EuroSAT_RGB"  # Update to the correct path
-img_size = (256, 256)  # Resize images to 256x256 if needed
+# Regularization Parameters
+use_l1 = True  # Set to True to enable L1 regularization
+use_l2 = True  # Set to True to enable L2 regularization
+l1_reg = 0.0001  # L1 regularization strength
+l2_reg = 0.00075  # L2 regularization strength
 
-# Load images and labels
-print("Starting to load images and labels...")
-class_names = sorted(os.listdir(data_dir))  # Get all class folder names
-data = []
+# Define Data Path
+data_dir = '/Users/andrewferguson/EuroSAT/EuroSAT_RGB'  # Update this path if needed
+
+# Measure data loading time
+start_data_time = time.time()
+
+# Load Image Paths & Labels
+print("Loading image paths and labels...")
+class_names = sorted([d for d in os.listdir(data_dir) if not d.startswith('.')])
+image_paths = []
 labels = []
 
-# Loop through each class folder
 for class_index, class_name in enumerate(class_names):
     class_path = os.path.join(data_dir, class_name)
     if os.path.isdir(class_path):
-        print(f"Loading images for class '{class_name}'...")
         for img_file in os.listdir(class_path):
-            img_path = os.path.join(class_path, img_file)
-            try:
-                img = Image.open(img_path).convert(
-                    "RGB"
-                )  # Load image and convert to RGB
-                img = img.resize(img_size)  # Resize image to target dimensions
-                data.append(np.array(img))
-                labels.append(class_name)
-            except Exception as e:
-                print(f"Could not process image {img_path}: {e}")
-        print(
-            f"Finished loading {len(os.listdir(class_path))} images for class '{class_name}'."
-        )
+            image_paths.append(os.path.join(class_path, img_file))
+            labels.append(class_index)
 
-# Convert data and labels to numpy arrays
-print("Converting data and labels to numpy arrays...")
-data = np.array(data)
-labels = np.array(labels)
+print(f"Loaded {len(image_paths)} images across {len(class_names)} classes.")
 
-# Normalize data
-print("Normalizing image data...")
-data = data.astype("float32") / 255.0
+# Convert labels to categorical format
+labels = to_categorical(labels, num_classes=len(class_names))
 
-# Encode labels as integers, then one-hot encode
-print("Encoding labels...")
-label_encoder = LabelEncoder()
-labels = label_encoder.fit_transform(labels)
-y = to_categorical(labels)
-print(f"Data shape: {data.shape}, Labels shape: {y.shape}")
-
-# Single train-test split
+# Train-Test Split
 print("Splitting data into training and testing sets...")
-X_train, X_test, y_train, y_test = train_test_split(
-    data, y, test_size=0.2, random_state=1, stratify=labels
-)
+X_train_paths, X_test_paths, y_train, y_test = train_test_split(image_paths, labels, test_size=0.2, random_state=1, stratify=labels)
+print(f"Training set: {len(X_train_paths)} images, Testing set: {len(X_test_paths)} images")
 
-# Build the model
-print("Building the model...")
-model = Sequential(
-    [
-        Conv2D(
-            32,
-            (3, 3),
-            activation="relu",
-            input_shape=(img_size[0], img_size[1], 3),
-        ),
-        MaxPooling2D((2, 2)),
-        Conv2D(64, (3, 3), activation="relu"),
-        MaxPooling2D((2, 2)),
-        Conv2D(128, (3, 3), activation="relu"),
-        MaxPooling2D((2, 2)),
-        Flatten(),
-        Dense(256, activation="relu"),
-        Dropout(0.5),
-        Dense(len(class_names), activation="softmax"),
-    ]
-)
+# Define Callbacks
+lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, verbose=1, min_lr=1e-6)
+early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True, verbose=1)
 
-model.compile(
-    loss=optimizer_loss_fun,
-    optimizer=optimizer_algorithm,
-    metrics=["accuracy"],
-)
+def parse_image(img_path, label):
+    img = tf.io.read_file(img_path)
+    img = tf.image.decode_jpeg(img, channels=3)
+    img = tf.image.resize(img, [num_rows, num_cols])
+    img = img / 255.0  # Normalize
+    return img, label
 
-# Train the model and save history
-print("Training the model...")
-history = model.fit(
-    X_train,
-    y_train,
-    epochs=number_epoch,
-    batch_size=batch_length,
-    verbose=show_inter_results,
-    validation_data=(X_test, y_test),
-)
 
-# Evaluate the model
-print("Evaluating the model...")
-scores = model.evaluate(X_test, y_test, verbose=1)
-print(f"Test accuracy: {scores[1] * 100:.2f}%")
+def augment_image(image, label):
+    image = tf.image.random_flip_left_right(image)
+    image = tf.image.random_flip_up_down(image)
+    image = tf.image.random_brightness(image, max_delta=0.4)
+    image = tf.image.random_contrast(image, lower=0.6, upper=1.5)
+    image = tf.image.random_saturation(image, lower=0.6, upper=1.5)
+    image = tf.image.random_hue(image, max_delta=0.1)
+    image = tf.clip_by_value(image, 0.0, 1.0)
 
-# Plot the loss and accuracy curves
-print("Plotting the loss and accuracy curves...")
-plt.figure(figsize=(12, 5))
+    # Random Gaussian noise
+    noise = tf.random.normal(shape=tf.shape(image), mean=0.0, stddev=0.01)
+    image = tf.clip_by_value(image + noise, 0.0, 1.0)
 
-# Loss curve
-plt.subplot(1, 2, 1)
-plt.plot(history.history["loss"], label="Training Loss")
-plt.plot(history.history["val_loss"], label="Validation Loss")
-plt.title("Loss Curve")
-plt.xlabel("Epochs")
-plt.ylabel("Loss")
-plt.legend()
+    # Randomly convert to grayscale
+    if tf.random.uniform([]) < 0.3:  # 50% chance
+        image = tf.image.rgb_to_grayscale(image)
+        image = tf.image.grayscale_to_rgb(image)
 
-# Accuracy curve
-plt.subplot(1, 2, 2)
-plt.plot(history.history["accuracy"], label="Training Accuracy")
-plt.plot(history.history["val_accuracy"], label="Validation Accuracy")
-plt.title("Accuracy Curve")
-plt.xlabel("Epochs")
-plt.ylabel("Accuracy")
-plt.legend()
+    return image, label
+
+def build_dataset(image_paths, labels, batch_size=20, augment=True):
+    dataset = tf.data.Dataset.from_tensor_slices((image_paths, labels))
+    dataset = dataset.map(parse_image, num_parallel_calls=tf.data.AUTOTUNE)
+
+    if augment:
+        dataset = dataset.map(augment_image, num_parallel_calls=tf.data.AUTOTUNE)
+
+    dataset = dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    return dataset
+
+print("Building TensorFlow datasets...")
+train_dataset = build_dataset(X_train_paths, y_train, batch_length)
+test_dataset = build_dataset(X_test_paths, y_test, batch_length)
+
+# Fetch a batch of augmented images from the dataset
+sample_batch = next(iter(train_dataset))
+
+# Extract images and labels
+sample_images, sample_labels = sample_batch
+
+# Convert labels from one-hot encoding to class indices
+sample_labels = np.argmax(sample_labels.numpy(), axis=1)
+
+# Plot the images with their labels
+num_images = min(9, len(sample_images))  # Show up to 9 images
+plt.figure(figsize=(10, 10))
+
+for i in range(num_images):
+    plt.subplot(3, 3, i + 1)
+    plt.imshow(sample_images[i].numpy())  # Convert tensor to NumPy for visualization
+    plt.title(f"Label: {class_names[sample_labels[i]]}")
+    plt.axis("off")
 
 plt.tight_layout()
-plt.show()
+plt.savefig('Augmented Data.png')
+
+data_loading_time = time.time() - start_data_time
+print(f"Data loading completed in {data_loading_time:.2f} seconds.")
+
+# Build Model
+print("Building the CNN model...")
+regularizer = l1_l2(l1=l1_reg if use_l1 else 0.0, l2=l2_reg if use_l2 else 0.0)
+
+model = Sequential([
+
+    Conv2D(64, (3, 3), activation='relu', padding='same', input_shape=(num_rows, num_cols, 3), kernel_regularizer=regularizer),
+    BatchNormalization(),
+    Conv2D(64, (3, 3), activation='relu', padding='same', kernel_regularizer=regularizer),
+    MaxPooling2D((2, 2)),
+    BatchNormalization(),
+
+    Conv2D(128, (3, 3), activation='relu', padding='same', kernel_regularizer=regularizer),
+    BatchNormalization(),
+    Conv2D(128, (3, 3), activation='relu', padding='same', kernel_regularizer=regularizer),
+    MaxPooling2D((2, 2)),
+    BatchNormalization(),
+
+    Conv2D(256, (3, 3), activation='relu', padding='same', kernel_regularizer=regularizer),
+    BatchNormalization(),
+    Conv2D(256, (3, 3), activation='relu', padding='same', kernel_regularizer=regularizer),
+    MaxPooling2D((2, 2)),
+    BatchNormalization(),
+
+    GlobalAveragePooling2D(),
+    Dense(1024, activation='relu', kernel_regularizer=regularizer),
+    Dropout(0.4),
+    Dense(512, activation='relu', kernel_regularizer=regularizer),
+    Dropout(0.3),
+    Dense(len(class_names), activation='softmax')
+])
+
+print("Model built")
+
+# Compile Model
+print("Compiling model...")
+model.compile(loss='categorical_crossentropy', optimizer=optimizer_algorithm, metrics=['accuracy'])
+print("Model compiled")
+
+# Measure training time
+print("🚀 Starting training...")
+start_train_time = time.time()
+
+history = model.fit(train_dataset,
+                    epochs=number_epoch,
+                    verbose=show_inter_results,
+                    validation_data=test_dataset,
+                    callbacks=[lr_scheduler, early_stopping])
+
+training_time = time.time() - start_train_time
+print(f"Training completed in {training_time:.2f} seconds.")
+
+print("Saving the trained model...")
+model.save("eurosat_model_augmented_2.keras")
+print("Model saved successfully.")
+
+# Evaluate Model
+print("Evaluating model on test dataset...")
+start_eval_time = time.time()
+scores = model.evaluate(test_dataset, verbose=1)
+eval_time = time.time() - start_eval_time
+
+print(f"Test accuracy: {scores[1] * 100: .2f}%")
+print(f"Evaluation completed in {eval_time: .2f} seconds.")
+
+# Generate Predictions for Confusion Matrix
+y_true = []
+X_test_images = []
+
+for image_batch, label_batch in test_dataset:
+    y_true.extend(np.argmax(label_batch.numpy(), axis=1))  # Convert one-hot to class indices
+
+y_true = np.array(y_true)
+
+y_pred_probs = model.predict(test_dataset)  # Get probability outputs
+y_pred = np.argmax(y_pred_probs, axis=1)  # Convert probabilities to class predictions
+
+# Compute Confusion Matrix
+conf_matrix = confusion_matrix(y_true, y_pred)
+
+# Display Classification Report
+print("Classification Report:\n", classification_report(y_true, y_pred, target_names=class_names))
+
+# Plot Confusion Matrix
+plt.figure(figsize=(16, 14))
+sns.heatmap(conf_matrix, annot=True, fmt="d", cmap="Blues", xticklabels=class_names, yticklabels=class_names)
+plt.xlabel("Predicted")
+plt.ylabel("True")
+plt.title("Confusion Matrix")
+plt.savefig('Confusion_Matrix.png')
+
+# Save plots
+plt.figure()
+plt.plot(history.history['accuracy'], label='Training Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.title('Training and Validation Accuracy')
+plt.savefig('accuracy_plot.png')
+
+plt.figure()
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+plt.title('Training and Validation Loss')
+plt.savefig('loss_plot.png')
+
+# Print Classification Report
+print("Classification Report:")
+print(classification_report(y_true, y_pred, target_names=class_names))
