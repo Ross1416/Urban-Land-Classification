@@ -1,20 +1,26 @@
 from tensorflow import keras
+
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+
+from fcns_classify import *
+from fcns_preprocess import *
+from fcns_download import *
+
+import xarray as xr
+from UI_workers import *
+
+
+# Deprecated?
+from time import sleep
+import openeo
+import asyncio
 import sys
 import os
 import numpy as np
-from updated_acquire_data import *
-from load_data import *
-import openeo
-import asyncio
-import xarray as xr
-from UI_workers import *
-from time import sleep
-
+from PyQt5.QtCore import *
 
 class App(QMainWindow):
     def __init__(self, class_labels, class_colours):

@@ -94,9 +94,9 @@ def classify(model, data, class_labels, stride):
                 cnn_image = np.dstack([normalise_band_for_CNN(redArr),# 0.3398, 0.2037),
                                        normalise_band_for_CNN(greenArr),# 0.3804, 0.1375),
                                        normalise_band_for_CNN(blueArr)]),# 0.4025, 0.1161)])
-                print(cnn_image.shape)
+                #print(cnn_image.shape)
                 cnn_image = np.expand_dims(cnn_image, axis=0)
-                print(cnn_image.shape)
+                #print(cnn_image.shape)
                 # Predict
                 predictions = model.predict(cnn_image)
 
