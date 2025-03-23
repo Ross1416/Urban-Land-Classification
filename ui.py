@@ -20,7 +20,14 @@ import asyncio
 import sys
 import os
 import numpy as np
-from PyQt5.QtCore import *
+from updated_acquire_data import *
+from load_data import *
+import openeo
+import asyncio
+import xarray as xr
+from ui_workers import *
+from time import sleep
+
 
 class App(QMainWindow):
     def __init__(self, class_labels, class_colours):
@@ -44,7 +51,7 @@ class App(QMainWindow):
 
         main_layout.addLayout(left_panel, 1)
         main_layout.addLayout(centre_panel, 5)
-        main_layout.addLayout(right_panel, 2)
+        main_layout.addLayout(right_panel, 3)
 
         container = QWidget()
         container.setLayout(main_layout)
@@ -186,6 +193,7 @@ class App(QMainWindow):
         self.image_label = QLabel(self)
         self.pixmap = QPixmap("data/test.jpg")
         self.image_label.setPixmap(self.pixmap)
+        layout.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.image_label)
         container = QGroupBox("Image")
         container.setLayout(layout)
@@ -259,7 +267,7 @@ class App(QMainWindow):
             self.ax.barh(self.class_labels, self.percentages,
                          color=self.class_colours)
             self.ax.set_xlabel("Percentage (%)")
-            self.ax.set_ylabel("Classes")
+            # self.ax.set_ylabel("Classes")
             self.ax.set_title("Distribution of Classes")
             self.canvas.draw()
 
@@ -276,8 +284,9 @@ class App(QMainWindow):
         self.ax = figure.add_subplot(111)
         self.ax.barh(self.class_labels, np.zeros(len(self.class_labels)),color=self.class_colours)
         self.ax.set_xlabel("Percentage (%)")
-        self.ax.set_ylabel("Classes")
+        # self.ax.set_ylabel("Classes")
         self.ax.set_title("Distribution of Classes")
+        figure.tight_layout()
         layout.addWidget(self.canvas)
 
     def load_btn_clicked(self):
@@ -346,7 +355,8 @@ class App(QMainWindow):
         redArr = data[{"t": self.slider.value()}].values[0,:,:]
         greenArr = data[{"t": self.slider.value()}].values[1, :,:]
         blueArr = data[{"t": self.slider.value()}].values[2, :,:]
-        rgb_image = np.dstack([normalise_band(redArr), normalise_band(greenArr), normalise_band(blueArr)])
+        rgb_image = np.dstack([normalise_band_for_CNN(redArr, 0.3398, 0.2037), normalise_band_for_CNN(greenArr, 0.3804, 0.1375), normalise_band_for_CNN(blueArr,0.4025, 0.1161)])
+        rgb_image = np.multiply(rgb_image,255).astype("uint8")
         height, width, channel = rgb_image.shape
         bytes_per_line = 3 * width
         img = QImage(rgb_image.data, width, height, bytes_per_line, QImage.Format_RGB888)
