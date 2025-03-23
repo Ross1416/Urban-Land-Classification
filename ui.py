@@ -1,19 +1,16 @@
 from tensorflow import keras
+
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-import sys
-import os
-import numpy as np
-from updated_acquire_data import *
-from load_data import *
-import openeo
-import asyncio
+
+from fcns_classify import *
+from fcns_preprocess import *
+from fcns_download import *
+
 import xarray as xr
 from ui_workers import *
-from time import sleep
 
 
 class App(QMainWindow):
