@@ -77,9 +77,6 @@ def combine_dataset(location, height, width, start_year, end_year):
             data = ds[["B04", "B03", "B02"]].to_array(dim="bands")
 
             for i in range(0, data.sizes["t"]):
-                # Create a new figure for each set of images
-                fig, axes = plt.subplots(1, 2, figsize=(12, 6), dpi=90, sharey=True)
-
                 maxVal = 3000
 
                 # Convert to Grayscale
