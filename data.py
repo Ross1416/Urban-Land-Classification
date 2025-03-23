@@ -9,17 +9,9 @@ import cv2
 
 def normalise_band(band, mean, std):
     band = np.nan_to_num(band, nan=0)
-    # band = np.clip(band, 0, 2000)
     band = ((band-np.mean(band))/(np.std(band)+ 1e-8))*std+mean
     band = np.clip(band,0,1)
     return band
-
-def interpolate_image(img, spatial_resolution):
-    """Interpolate input images to correct spatial resolution."""
-    scale_factor = int(spatial_resolution / 10)
-    new_size = (int(img.shape[0] * scale_factor), int(img.shape[1] * scale_factor))
-    resized_img = cv2.resize(img, new_size, interpolation=cv2.INTER_CUBIC)
-    return resized_img
 
 def classify(model, data, class_labels, normalisation_values, RGB_only=False, stride=64):
     class_map = []
@@ -168,8 +160,7 @@ def combine_dataset(location, height, width, start_year, end_year):
         try:
             ds = xr.load_dataset(file_path)
             # Convert xarray DataSet to a (bands, t, x, y) DataArray
-            # data = ds[["B04", "B03", "B02"]].to_array(dim="bands")
-            data = ds[ALL_BANDS].to_array(dim="bands")
+            data = ds[["B04", "B03", "B02"]].to_array(dim="bands")
             for i in range(0, data.sizes["t"]):
                 # Convert to Grayscale
                 # TODO: check this works for all bands correctly
