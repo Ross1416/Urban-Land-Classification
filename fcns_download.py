@@ -51,7 +51,6 @@ def download_dataset(location, width, height, north, south, east, west, bands, c
 
         # Generate time ranges for March of each year from 2014 to 2024
         temporal_extent = [f"{year}-04-01", f"{year}-06-28"]
-        print(temporal_extent)
 
         datacube = con.load_collection(
             "SENTINEL2_L2A",
@@ -75,28 +74,37 @@ def combine_dataset(location, height, width, start_year, end_year):
         try:
             ds = xr.load_dataset(file_path)
             # Convert xarray DataSet to a (bands, t, x, y) DataArray
-            # data = ds[["B04", "B03", "B02"]].to_array(dim="bands")
-            data = ds[BANDS].to_array(dim="bands")
+            data = ds[["B04", "B03", "B02"]].to_array(dim="bands")
 
             for i in range(0, data.sizes["t"]):
+                # Create a new figure for each set of images
+                fig, axes = plt.subplots(1, 2, figsize=(12, 6), dpi=90, sharey=True)
+
+                maxVal = 3000
+
                 # Convert to Grayscale
                 weights = xr.DataArray([0.2989, 0.5870, 0.1140], dims=["bands"])
                 grayscale = (data[{"t": i}] * weights).sum(dim="bands")
 
-                # Determine histogram
-                grayscale_np = grayscale.values.flatten()
-                grayscale_np = grayscale_np / 10000
-                grayscale_np = grayscale_np * 255
-                hist_values, bin_edges = np.histogram(grayscale_np, bins=255, range=(0, 255))
+                # (SAME CODE AS CHECK_CLOUD FUNCTION JUST INPUT IN DIFFERENT FORMAT)
+                grayscale_np = grayscale.values
+                grayscale_np = np.minimum(grayscale_np, maxVal)
+                grayscale_np = grayscale_np / maxVal * 255
+                hist_values, bin_edges = np.histogram(grayscale_np, bins=256, range=(0, 256))
 
                 # If histogram has too much white (cloud) don't include
-                if np.sum(hist_values[70:254]) > data.shape[-2]*data.shape[-1]*0.05:
+                if hist_values[255] > data.shape[-2] * data.shape[-1] * 0.01:
                     print("Too much cloud")
                     continue
 
                 # If any NaN don't include:
                 if hist_values[0] > 30:
                     print("Contained NaN")
+                    continue
+
+                # If any in shadow don't include:
+                if np.sum(hist_values[0:5]) > 200:
+                    print("Too dark")
                     continue
 
                 # If made it through checks then make representative of year and move on

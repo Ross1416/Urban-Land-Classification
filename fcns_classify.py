@@ -1,5 +1,4 @@
 import math
-import numpy as np
 
 from fcns_preprocess import *
 
@@ -41,12 +40,11 @@ def classify(model, data, class_labels, stride):
                 #     predicted_class = len(class_labels) - 2
                 # else:
                 # Classify patch
-                cnn_image = np.dstack([normalise_band_for_CNN(redArr),# 0.3398, 0.2037),
-                                       normalise_band_for_CNN(greenArr),# 0.3804, 0.1375),
-                                       normalise_band_for_CNN(blueArr)]),# 0.4025, 0.1161)])
-                #print(cnn_image.shape)
+                cnn_image = np.dstack([normalise_band_for_CNN(redArr, 0.3398, 0.2037),
+                                       normalise_band_for_CNN(greenArr, 0.3804, 0.1375),
+                                       normalise_band_for_CNN(blueArr,0.4025, 0.1161)])
                 cnn_image = np.expand_dims(cnn_image, axis=0)
-                #print(cnn_image.shape)
+
                 # Predict
                 predictions = model.predict(cnn_image)
 
@@ -108,25 +106,14 @@ def classify_ms(model, data, class_labels, stride):
                 # Get RGB
 
                 bands = data[{"t": k}].values[:, i:i + 64, j:j + 64]
-                # print("classify ms")
-                # print(bands.shape)
-                # redArr = data[{"t": k}].values[0, i:i + 64, j:j + 64]
-                # print(redArr.shape)
-                # greenArr = data[{"t": k}].values[1, i:i + 64, j:j + 64]
-                # blueArr = data[{"t": k}].values[2, i:i + 64, j:j + 64]
 
-                # # Doubl   e check not too much cloud cover before NN
-                # if check_cloud(redArr, greenArr, blueArr, 64, 64):
-                #     # Too much cloud
-                #     predicted_class = len(class_labels) - 2
-                # else:
                 # Classify patch
                 bands_arr = []
                 [bands_arr.append(normalise_band_for_CNN(x)) for x in bands]
                 cnn_image = np.dstack(bands_arr)
-                print(cnn_image.shape)
+
                 cnn_image = np.expand_dims(cnn_image, axis=0)
-                print(cnn_image.shape)
+
 
                 # Predict
                 predictions = model.predict(cnn_image)
@@ -165,7 +152,6 @@ def classify_basic(model, data, class_labels):
     num_rows = math.floor(data[{"t": 0}].shape[1]/64)
     num_cols = math.floor(data[{"t": 0}].shape[2]/64)
 
-    print(num_rows, num_cols)
 
     for k in range(data.sizes["t"]):
         # idImage = 0
@@ -192,18 +178,6 @@ def classify_basic(model, data, class_labels):
                 predicted_class = np.argmax(predictions, axis=1)[0]
                 class_map_year[int(i/64)][int(j/64)] = int(predicted_class)
                 # predicted_label = class_labels[predicted_class]
-
-                # For testing display cropped image
-                # rgb_image = np.dstack([normalise_band(redArr), normalise_band(greenArr), normalise_band(blueArr)])
-                # axes[idImage].imshow(rgb_image)
-                # axes[idImage].set_xticks([])
-                # axes[idImage].set_yticks([])
-                # axes[idImage].set_frame_on(False)
-                # axes[idImage].set_title(predicted_label, fontsize=8)
-                # idImage = idImage + 1
-
-        # plt.subplots_adjust(wspace=0, hspace=0)
-        # plt.show()
 
         class_map.append(class_map_year)
     return class_map

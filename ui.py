@@ -10,23 +10,7 @@ from fcns_preprocess import *
 from fcns_download import *
 
 import xarray as xr
-from UI_workers import *
-
-
-# Deprecated?
-from time import sleep
-import openeo
-import asyncio
-import sys
-import os
-import numpy as np
-from updated_acquire_data import *
-from load_data import *
-import openeo
-import asyncio
-import xarray as xr
 from ui_workers import *
-from time import sleep
 
 
 class App(QMainWindow):
