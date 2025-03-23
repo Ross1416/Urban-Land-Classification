@@ -55,10 +55,11 @@ def classify(model, data, class_labels, normalisation_values, RGB_only=False, st
                     if RGB_only:
                         if list(normalisation_values.keys())[x] in RGB_BANDS:
                             bands_arr.append(normalise_band(band, mean, std))
-                            bands_arr.reverse()
+
                     else:
                         bands_arr.append(normalise_band(band, mean, std))
 
+                bands_arr.reverse()
                 cnn_image = np.dstack(bands_arr)
                 cnn_image = np.expand_dims(cnn_image, axis=0)
                 # Predict
@@ -131,7 +132,7 @@ def postcode_to_area(postcode, height, width):
 def download_dataset(location, width, height, north, south, east, west, bands, cloud_cover, start_year, end_year):
     con = openeo.connect("openeo.dataspace.copernicus.eu")
     con.authenticate_oidc()
-
+    datacube = None
     for year in range(start_year, end_year + 1):
         saveLocation = f"./data/{location}_{height}x{width}_{year}.nc"
 

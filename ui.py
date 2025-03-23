@@ -372,8 +372,6 @@ class App(QMainWindow):
         print("Downloading...")
         self.download_button.setEnabled(False)
         self.download_button.setText("Downloading...")
-        self.download_button.setText("Downloading...")
-        print("button changed")
         self.location = self.location_input.text()
 
         if not self.location:
@@ -388,7 +386,7 @@ class App(QMainWindow):
         self.total_downloads = (self.end_year - self.start_year) + 1
         self.download_count = 0
 
-        worker = Worker(download_dataset, self.location, self.width, self.height, north, south, east, west, BANDS, MAX_CLOUD_COVER, self.start_year, self.end_year)  # Any other args, kwargs are passed to the run function
+        worker = Worker(download_dataset, self.location, self.width, self.height, north, south, east, west, ALL_BANDS, MAX_CLOUD_COVER, self.start_year, self.end_year)  # Any other args, kwargs are passed to the run function
         worker.signals.finished.connect(self.download_finished)
         worker.signals.error.connect(self.download_error)
 
