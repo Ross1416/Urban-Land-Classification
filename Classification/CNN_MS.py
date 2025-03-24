@@ -5,6 +5,7 @@ import time
 import gc
 import rasterio
 import random
+import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.models import Sequential
@@ -26,20 +27,30 @@ from sklearn.metrics import confusion_matrix, classification_report
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-print("Hardware: ", tf.config.list_physical_devices("GPU"))
-print("Starting script...")
 
-# Start measuring total execution time
-total_start_time = time.time()
+# Fix the seed
+def set_global_seed(seed=42):
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    tf.random.set_seed(seed)
+    print(f"✅ Global seed set to {seed}")
 
-# Enable Apple Silicon Acceleration
-tf.keras.mixed_precision.set_global_policy("mixed_float16")
-print("Enabled Mixed Precision Training")
+
+# Define Normalisation Function
+def normalise_band(band, mean, std):
+    band = np.nan_to_num(band, nan=0)
+    band = ((band - np.mean(band)) / (np.std(band) + 1e-8)) * std + mean
+    band = np.clip(band, 0, 1)
+    return band
+
+
+# Set seed
+set_global_seed()
 
 # Parameters
-np.random.seed(1)
 optimizer_algorithm = Adam(learning_rate=0.00003)
-number_epoch = 100
+number_epoch = 200
 batch_length = 16
 show_inter_results = 1
 num_rows, num_cols, num_bands = (
@@ -54,7 +65,15 @@ l1_reg, l2_reg = 0.0002, 0.001
 
 # Define Data Path
 data_dir = "C:/Users/Chris/Desktop/EuroSAT/EuroSAT_MS"
+band_stats_path = "band_statistics.csv"
 max_images_per_class = 250  # Limit dataset size
+
+
+# Load Band Statistics
+band_stats_df = pd.read_csv(band_stats_path).drop_duplicates(subset="Band")
+band_stats_df = band_stats_df.sort_values("Band").reset_index(drop=True)
+band_means = band_stats_df["Mean"].values
+band_stds = band_stats_df["Std"].values
 
 # Measure data loading time
 start_data_time = time.time()
@@ -81,10 +100,10 @@ for class_name in class_names:
                     image_array = img.read()
                     image_array = np.transpose(
                         image_array, (1, 2, 0)
-                    )  # Convert to (height, width, bands)
+                    )  # (H, W, C)
                     image_array = np.delete(
                         image_array, 10, axis=2
-                    )  # Remove B10
+                    )  # Remove B10 (index 10)
                 image_array = tf.image.resize(
                     image_array, (num_rows, num_cols)
                 ).numpy()
@@ -99,7 +118,14 @@ print("Finished loading images.")
 data = np.array(data, dtype=np.float32)
 labels = np.array(labels)
 
-# Normalize image data
+# Normalising using per-band stats
+print("Normalising...")
+for band in range(data.shape[-1]):
+    max_val = np.max(data[:, :, :, band])
+    data[:, :, :, band] /= max_val
+    if max_val <= 0:
+        print(f"WARNING: max_val of {band} is <=0 ")
+
 data = data / np.max(data)
 
 # Encode labels
@@ -135,7 +161,11 @@ model = Sequential(
             32,
             (3, 3),
             activation="relu",
-            input_shape=(num_rows, num_cols, num_bands),
+            input_shape=(
+                num_rows,
+                num_cols,
+                num_bands,
+            ),  # One less due to B10
             kernel_regularizer=regularizer,
         ),
         MaxPooling2D((2, 2)),
@@ -182,7 +212,7 @@ print(f"Training completed in {training_time:.2f} seconds.")
 
 # Save Model
 print("Saving the trained model...")
-model.save("eurosat_ms_model_200.keras")
+model.save("eurosat_ms_model_v3.keras")
 print("Model saved successfully.")
 
 # Evaluate Model
@@ -222,7 +252,6 @@ plt.xlabel("Predicted")
 plt.ylabel("True")
 plt.title("Confusion Matrix")
 plt.show()
-
 
 # Plot Training & Validation Loss and Accuracy
 plt.figure(figsize=(12, 5))
