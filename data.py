@@ -6,9 +6,16 @@ import requests
 import openeo
 import xarray as xr
 import cv2
+from scipy.interpolate import RectBivariateSpline
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("agg")
 
 def normalise_band(band, mean, std):
+    std *= 2
+    mean *= 2
     band = np.nan_to_num(band, nan=0)
+    band = np.clip(band, 0, 5000)
     band = ((band-np.mean(band))/(np.std(band)+ 1e-8))*std+mean
     band = np.clip(band,0,1)
     return band
@@ -49,18 +56,51 @@ def classify(model, data, class_labels, normalisation_values, RGB_only=False, st
                 bands_arr = []
                 for x, band in enumerate(bands):
                     mean, std = list(normalisation_values.values())[x]
-
                     # If RGB_only=true, look at only the RGB bands
 
                     if RGB_only:
                         if list(normalisation_values.keys())[x] in RGB_BANDS:
                             bands_arr.append(normalise_band(band, mean, std))
-
                     else:
-                        bands_arr.append(normalise_band(band, mean, std))
+                        band = normalise_band(band, mean, std)
+                        # Interpolate
+                        # print("interpolating")
+                        size = int(list(BAND_RESOLUTION.values())[x])
+                        # if size != 64:
+                        step = int(64.0/size)
+                        # print(size, step)
+                        img_downsampled = band[::step,::step]
+                        # print(np.array(img_downsampled).shape)
 
-                bands_arr.reverse()
+                        x_original = np.linspace(0, 1, size)  # 32 points in original
+                        y_original = np.linspace(0, 1, size)
+                        x_new = np.linspace(0, 1, 64)  # 64 target points
+                        y_new = np.linspace(0, 1, 64)
+
+                        spline = RectBivariateSpline(y_original, x_original, img_downsampled)
+                        band = spline(y_new, x_new)
+                        bands_arr.append(band)
+
+                if RGB_only:
+                    bands_arr.reverse()
+
                 cnn_image = np.dstack(bands_arr)
+
+                # if j==0:
+                #     print(cnn_image.shape)
+                #     img = cnn_image
+                #     fig, axes = plt.subplots(1, 12, figsize=(24, 2))
+                #
+                #     # Generate example data
+                #     # Plot in each subplot
+                #     for i, ax in enumerate(axes):
+                #         ax.imshow(img[:, :, i], cmap='gray')
+                #         ax.set_title(f"Subplot {i + 1}")
+                #         ax.axis("off")
+                #
+                #     plt.tight_layout()
+                #     plt.savefig("plot.png")
+
                 cnn_image = np.expand_dims(cnn_image, axis=0)
                 # Predict
                 predictions = model.predict(cnn_image)
@@ -203,21 +243,70 @@ def combine_dataset(location, height, width, start_year, end_year):
 # ---------------- Global Variables ---------------- #
 ALL_BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09","B11", "B12"]
 RGB_BANDS = ["B04", "B03", "B02"]
+# BAND_NORMALISATION_VALUES = {
+#     "B01": (0.0763954,0.013842635),
+#     "B02": (0.039900124, 0.011908601),
+#     "B03": (0.0372102, 0.014114987),
+#     "B04": (0.033805475, 0.021231387),
+#     "B05": (0.049949486,0.023617674),
+#     "B06": (0.07207413,0.030981975),
+#     "B07": (0.084782995,0.038819022),
+#     "B08": (0.08217743,0.039935715),
+#     "B8A": (0.047593687,0.026250929),
+#     "B09": (0.06611737,0.025843639),
+#     "B11": (0.050346848,0.034246925),
+#     "B12": (0.092849344,0.04398858),
+# }
+
 BAND_NORMALISATION_VALUES = {
-    "B01": (0,0),
-    "B02": (0.4025, 0.1161),
-    "B03": (0.3804, 0.1375),
-    "B04": (0.3398, 0.2037),
-    "B05": (0,0),
-    "B06": (0,0),
-    "B07": (0,0),
-    "B08": (0,0),
-    "B8A": (0,0),
-    "B09": (0,0),
-    "B11": (0,0),
-    "B12": (0,0),
+    "B01": (0.27073746,0.048857192),
+    "B02": (0.223406, 0.06586568),
+    "B03": (0.20833384, 0.0781746),
+    "B04": (0.18923364, 0.11786194),
+    "B05": (0.23979506,0.11283984),
+    "B06": (0.40054204,0.1717241),
+    "B07": (0.47429512,0.21576442),
+    "B08": (0.4598104,0.22216458),
+    "B8A": (0.14643246,0.0807013),
+    "B09": (0.066117596,0.025843601),
+    "B11": (0.22353914,0.15123488),
+    "B12": (0.51832534,0.24237852),
 }
 
+BAND_RESOLUTION = {
+    "B01": 16,#60, ## SHOULD BE 10
+    "B02": 64,#10,
+    "B03": 64,#10,
+    "B04": 64,#10,
+    "B05": 32,#20,
+    "B06": 32,#20,
+    "B07": 32,#20,
+    "B08": 64,#10,
+    "B8A": 32,#20,
+    "B09": 16,#60, ## SHOULD BE 10
+    "B11": 32,#20,
+    "B12": 32,#20,
+}
+
+# RGB_BAND_NORMALISATION_VALUES = {
+#     "B02": (0.4025, 0.1161),
+#     "B03": (0.3804, 0.1375),
+#     "B04": (0.3398, 0.2037),
+# }
+# BAND_NORMALISATION_VALUES ={
+#     "B01": (0.0763954, 0.013842635),
+#     "B02": (0.4025, 0.1161),
+#     "B03": (0.3804, 0.1375),
+#     "B04": (0.3398, 0.2037),
+#     "B05": (0.049949486, 0.023617674),
+#     "B06": (0.07207413, 0.030981975),
+#     "B07": (0.084782995, 0.038819022),
+#     "B08": (0.08217743, 0.039935715),
+#     "B8A": (0.047593687, 0.026250929),
+#     "B09": (0.06611737, 0.025843639),
+#     "B11": (0.050346848, 0.034246925),
+#     "B12": (0.092849344, 0.04398858),
+# }
 
 
 MAX_CLOUD_COVER = 30

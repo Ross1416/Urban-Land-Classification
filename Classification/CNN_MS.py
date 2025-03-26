@@ -25,6 +25,8 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import confusion_matrix, classification_report
 import seaborn as sns
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("qtagg")
 
 print("Hardware: ", tf.config.list_physical_devices("GPU"))
 print("Starting script...")
@@ -53,7 +55,8 @@ use_l1, use_l2 = True, True
 l1_reg, l2_reg = 0.0002, 0.001
 
 # Define Data Path
-data_dir = "C:/Users/Chris/Desktop/EuroSAT/EuroSAT_MS"
+# data_dir = "C:/Users/Chris/Desktop/EuroSAT/EuroSAT_MS"
+data_dir = "C:/Users/ringl/Documents/Uni_Classes/Y5S1/EE581/Project/dataset/EuroSATallBands/ds/images/remote_sensing/otherDatasets/sentinel_2/tif/"
 max_images_per_class = 250  # Limit dataset size
 
 # Measure data loading time
@@ -100,8 +103,27 @@ data = np.array(data, dtype=np.float32)
 labels = np.array(labels)
 
 # Normalize image data
+print("MAX:",np.max(data))
+data = np.clip(data, 0, 5000)
+print("MAX:",np.max(data))
 data = data / np.max(data)
 
+# print(data.shape)
+#
+# img = data[0]
+# fig, axes = plt.subplots(1, 12, figsize=(24, 2))
+#
+# # Generate example data
+# # Plot in each subplot
+# for i, ax in enumerate(axes):
+#     ax.imshow(img[:,:,i], cmap='gray')
+#     ax.set_title(f"Subplot {i+1}")
+#     ax.axis("off")
+#
+# plt.tight_layout()
+# plt.show()
+#
+# exit()
 # Encode labels
 label_encoder = LabelEncoder()
 labels = label_encoder.fit_transform(labels)

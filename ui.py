@@ -5,6 +5,9 @@ from PyQt5.QtWidgets import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
+
+
+
 # from fcns_classify import *
 # from fcns_preprocess import *
 # from fcns_download import *
@@ -337,11 +340,19 @@ class App(QMainWindow):
         self.end_date_label.setText(str(self.end_year))
 
     def update_image(self):
-        data = self.dataset[RGB_BANDS].to_array(dim="bands")
-        redArr = data[{"t": self.slider.value()}].values[0,:,:]
-        greenArr = data[{"t": self.slider.value()}].values[1, :,:]
-        blueArr = data[{"t": self.slider.value()}].values[2, :,:]
-        rgb_image = np.dstack([normalise_band(redArr, 0.3398, 0.2037), normalise_band(greenArr, 0.3804, 0.1375), normalise_band(blueArr,0.4025, 0.1161)])
+        data = self.dataset[ALL_BANDS].to_array(dim="bands")
+        data = data[{"t": self.slider.value()}].values
+        rgb_image = []
+        for x, band in enumerate(data):
+            mean, std = list(BAND_NORMALISATION_VALUES.values())[x]
+            if list(BAND_NORMALISATION_VALUES.keys())[x] in RGB_BANDS:
+                rgb_image.append(normalise_band(band, mean, std))
+        rgb_image.reverse()
+        rgb_image = np.dstack(rgb_image)
+        # redArr = data[{"t": self.slider.value()}].values[0,:,:]
+        # greenArr = data[{"t": self.slider.value()}].values[1, :,:]
+        # blueArr = data[{"t": self.slider.value()}].values[2, :,:]
+        # rgb_image = np.dstack([normalise_band(redArr, 0.3398, 0.2037), normalise_band(greenArr, 0.3804, 0.1375), normalise_band(blueArr,0.4025, 0.1161)])
         rgb_image = np.multiply(rgb_image,255).astype("uint8")
         height, width, channel = rgb_image.shape
         bytes_per_line = 3 * width
@@ -449,9 +460,6 @@ class App(QMainWindow):
         else:
             print("RGB Classify")
             worker = Worker(classify, self.model, data, self.class_labels, BAND_NORMALISATION_VALUES, True, stride)
-            # TODO: Using old method seems better - find out why
-            # data = self.dataset[RGB_BANDS].to_array(dim="bands")
-            # worker = Worker(classify, self.model, data, self.class_labels, stride)
             worker.signals.finished.connect(self.finished_classifing)
             worker.signals.error.connect(self.error_classifing)
             worker.signals.result.connect(self.handle_classification_result)
