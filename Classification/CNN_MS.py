@@ -56,7 +56,7 @@ show_inter_results = 1
 num_rows, num_cols, num_bands = (
     64,
     64,
-    3,
+    12,
 )  # 12 bands for MS data (excluding B10)
 
 # Regularization Parameters
@@ -68,12 +68,6 @@ data_dir = "C:/Users/Chris/Desktop/EuroSAT/EuroSAT_MS"
 band_stats_path = "band_statistics.csv"
 max_images_per_class = 250  # Limit dataset size
 
-
-# Load Band Statistics
-band_stats_df = pd.read_csv(band_stats_path).drop_duplicates(subset="Band")
-band_stats_df = band_stats_df.sort_values("Band").reset_index(drop=True)
-band_means = band_stats_df["Mean"].values
-band_stds = band_stats_df["Std"].values
 
 # Measure data loading time
 start_data_time = time.time()
@@ -97,10 +91,11 @@ for class_name in class_names:
             img_path = os.path.join(class_path, img_file)
             try:
                 with rasterio.open(img_path) as img:
-                    image_array = img.read([1, 2, 3])
+                    image_array = img.read()
                     image_array = np.transpose(
                         image_array, (1, 2, 0)
                     )  # (H, W, C)
+                    image_array = np.delete(image_array, 10, axis=2)
                 image_array = tf.image.resize(
                     image_array, (num_rows, num_cols)
                 ).numpy()
@@ -125,7 +120,6 @@ for band in range(data.shape[-1]):
     if max_val <= 0:
         print(f"WARNING: max_val of {band} is <=0 ")
 
-data = data / np.max(data)
 
 # Encode labels
 label_encoder = LabelEncoder()
