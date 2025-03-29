@@ -12,8 +12,6 @@ import matplotlib
 matplotlib.use("agg")
 
 def normalise_band(band, mean, std):
-    std *= 2
-    mean *= 2
     band = np.nan_to_num(band, nan=0)
     band = np.clip(band, 0, 5000)
     band = ((band-np.mean(band))/(np.std(band)+ 1e-8))*std+mean
