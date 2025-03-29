@@ -45,7 +45,7 @@ set_global_seed(42)
 
 # Hyperparameters
 optimizer_algorithm = Adam(learning_rate=0.00003)
-number_epoch = 2
+number_epoch = 100
 batch_length = 16
 show_inter_results = 1
 num_rows = 64
@@ -103,10 +103,10 @@ def parse_image(img_path, label):
 def augment_image(image, label):
     image = tf.image.random_flip_left_right(image)
     image = tf.image.random_flip_up_down(image)
-    image = tf.image.random_brightness(image, max_delta=0.3)
+    image = tf.image.random_brightness(image, max_delta=0.2)
     image = tf.image.random_contrast(image, lower=0.8, upper=1.2)
     image = tf.image.random_saturation(image, lower=0.8, upper=1.2)
-    image = tf.image.random_hue(image, max_delta=0.1)
+    image = tf.image.random_hue(image, max_delta=0.05)
     image = tf.clip_by_value(image, 0.0, 1.0)
     return image, label
 
