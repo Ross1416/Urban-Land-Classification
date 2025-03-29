@@ -144,13 +144,19 @@ class App(QMainWindow):
 
         # Size of data to download
         width_label = QLabel("Width (km):")
-        self.width_spinbox = QSpinBox()
+        # self.width_spinbox = QSpinBox()
+        self.width_spinbox = QDoubleSpinBox()
+        self.width_spinbox.setDecimals(1)
+        self.width_spinbox.setSingleStep(0.1)
         self.width_spinbox.setMinimum(1)  # Set minimum value
         self.width_spinbox.setMaximum(10)  # Set maximum value
         self.width_spinbox.setValue(1)  # Set default value
 
         height_label = QLabel("Height (km):")
-        self.height_spinbox = QSpinBox()
+        # self.height_spinbox = QSpinBox()
+        self.height_spinbox = QDoubleSpinBox()
+        self.height_spinbox.setDecimals(1)
+        self.height_spinbox.setSingleStep(0.1)
         self.height_spinbox.setMinimum(1)  # Set minimum value
         self.height_spinbox.setMaximum(10)  # Set maximum value
         self.height_spinbox.setValue(1)  # Set default value
