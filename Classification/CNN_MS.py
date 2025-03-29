@@ -62,7 +62,7 @@ l1_reg, l2_reg = 0.0002, 0.001
 # data_dir = "C:/Users/Chris/Desktop/EuroSAT/EuroSAT_MS"
 data_dir = "../../../data/EuroSATallBands/"
 band_stats_path = "band_statistics.csv"
-max_images_per_class = 250  # Limit dataset size
+max_images_per_class = 2000  # Limit dataset size
 
 
 # Measure data loading time
@@ -194,7 +194,7 @@ print(f"Training completed in {training_time:.2f} seconds.")
 
 # Save Model
 print("Saving the trained model...")
-model.save("eurosat_ms_new.keras")
+model.save("eurosat_ms_new_2000.keras")
 print("Model saved successfully.")
 
 # Evaluate Model
