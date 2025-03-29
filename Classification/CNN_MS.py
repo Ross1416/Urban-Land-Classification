@@ -86,7 +86,7 @@ for class_name in class_names:
             try:
                 with rasterio.open(img_path) as img:
                     image_array = img.read()
-                    image_array = np.delete(image_array, 10, axis=0)
+                    image_array = np.delete(image_array, 11, axis=0)
                     image_array = np.transpose(image_array, (1, 2, 0))  # (H, W, C)
                 image_array = tf.image.resize(image_array, (num_rows, num_cols)).numpy()
                 image_array = np.clip(image_array, 0, 5000)
