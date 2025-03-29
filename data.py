@@ -13,10 +13,20 @@ matplotlib.use("agg")
 
 def normalise_band(band, mean, std):
     band = np.nan_to_num(band, nan=0)
-    band = np.clip(band, 0, 5000)
+    band = np.clip(band, 0, 2750)
     band = ((band-np.mean(band))/(np.std(band)+ 1e-8))*std+mean
     band = np.clip(band,0,1)
     return band
+
+def check_cloud(red, green, blue, width, height):
+    gray = 0.2989 * red + 0.5870 * green + 0.1140 * blue
+
+    hist_values, bin_edges = np.histogram(gray, bins=256, range=(0, 256))
+
+    if hist_values[255] > width * height * 0.01:
+        return 1
+
+    return 0
 
 def classify(model, data, class_labels, normalisation_values, RGB_only=False, stride=64):
     class_map = []
@@ -43,12 +53,6 @@ def classify(model, data, class_labels, normalisation_values, RGB_only=False, st
                     continue
 
                 bands = data[{"t": k}].values[:, i:i + 64, j:j + 64]
-
-                # # Double check not too much cloud cover before NN
-                # if check_cloud(redArr, greenArr, blueArr, 64, 64):
-                #     # Too much cloud
-                #     predicted_class = len(class_labels) - 2
-                # else:
 
                 # Classify patch
                 bands_arr = []
@@ -202,18 +206,23 @@ def combine_dataset(location, height, width, start_year, end_year):
             data = ds[["B04", "B03", "B02"]].to_array(dim="bands")
             for i in range(0, data.sizes["t"]):
                 # Convert to Grayscale
-                # TODO: check this works for all bands correctly
+                maxVal = 2750
+
+                # Convert to Grayscale
                 weights = xr.DataArray([0.2989, 0.5870, 0.1140], dims=["bands"])
                 grayscale = (data[{"t": i}] * weights).sum(dim="bands")
 
-                # Determine histogram
-                grayscale_np = grayscale.values.flatten()
-                grayscale_np = grayscale_np / 10000
-                grayscale_np = grayscale_np * 255
-                hist_values, bin_edges = np.histogram(grayscale_np, bins=255, range=(0, 255))
+                # (SAME CODE AS CLOUD FUNCTION JUST INPUT IN DIFFERENT FORMAT AND PLOTTING IMAGES HERE)
+                grayscale_np = grayscale.values
+
+                grayscale_np = np.minimum(grayscale_np, maxVal)
+
+                grayscale_np = grayscale_np / maxVal * 255
+
+                hist_values, bin_edges = np.histogram(grayscale_np, bins=256, range=(0, 256))
 
                 # If histogram has too much white (cloud) don't include
-                if np.sum(hist_values[70:254]) > data.shape[-2]*data.shape[-1]*0.05:
+                if hist_values[255] > data.shape[-2] * data.shape[-1] * 0.03:
                     print("Too much cloud")
                     continue
 
@@ -222,12 +231,15 @@ def combine_dataset(location, height, width, start_year, end_year):
                     print("Contained NaN")
                     continue
 
+                # If any in shadow don't include:
+                if np.sum(hist_values[0:5]) > data.shape[-2] * data.shape[-1] * 0.01:
+                    print("Too dark")
+                    continue
+
                 # If made it through checks then make representative of year and move on
                 datasets.append(ds[{"t": i}])
                 print("Picture Accepted")
                 break
-
-            # Check if year was added, if not print error
 
         except FileNotFoundError:
             print(f"Missing {year}")
@@ -256,20 +268,20 @@ RGB_BANDS = ["B04", "B03", "B02"]
 #     "B12": (0.092849344,0.04398858),
 # }
 
-BAND_NORMALISATION_VALUES = {
-    "B01": (0.27073746,0.048857192),
-    "B02": (0.223406, 0.06586568),
-    "B03": (0.20833384, 0.0781746),
-    "B04": (0.18923364, 0.11786194),
-    "B05": (0.23979506,0.11283984),
-    "B06": (0.40054204,0.1717241),
-    "B07": (0.47429512,0.21576442),
-    "B08": (0.4598104,0.22216458),
-    "B8A": (0.14643246,0.0807013),
-    "B09": (0.066117596,0.025843601),
-    "B11": (0.22353914,0.15123488),
-    "B12": (0.51832534,0.24237852),
-}
+# BAND_NORMALISATION_VALUES = {
+#     "B01": (0.27073746,0.048857192),
+#     "B02": (0.223406, 0.06586568),
+#     "B03": (0.20833384, 0.0781746),
+#     "B04": (0.18923364, 0.11786194),
+#     "B05": (0.23979506,0.11283984),
+#     "B06": (0.40054204,0.1717241),
+#     "B07": (0.47429512,0.21576442),
+#     "B08": (0.4598104,0.22216458),
+#     "B8A": (0.14643246,0.0807013),
+#     "B09": (0.066117596,0.025843601),
+#     "B11": (0.22353914,0.15123488),
+#     "B12": (0.51832534,0.24237852),
+# }
 
 BAND_RESOLUTION = {
     "B01": 16,#60, ## SHOULD BE 10
@@ -291,20 +303,20 @@ BAND_RESOLUTION = {
 #     "B03": (0.3804, 0.1375),
 #     "B04": (0.3398, 0.2037),
 # }
-# BAND_NORMALISATION_VALUES ={
-#     "B01": (0.0763954, 0.013842635),
-#     "B02": (0.4025, 0.1161),
-#     "B03": (0.3804, 0.1375),
-#     "B04": (0.3398, 0.2037),
-#     "B05": (0.049949486, 0.023617674),
-#     "B06": (0.07207413, 0.030981975),
-#     "B07": (0.084782995, 0.038819022),
-#     "B08": (0.08217743, 0.039935715),
-#     "B8A": (0.047593687, 0.026250929),
-#     "B09": (0.06611737, 0.025843639),
-#     "B11": (0.050346848, 0.034246925),
-#     "B12": (0.092849344, 0.04398858),
-# }
+BAND_NORMALISATION_VALUES ={
+    "B01": (0.0763954, 0.013842635),
+    "B02": (0.4025, 0.1161),
+    "B03": (0.3804, 0.1375),
+    "B04": (0.3398, 0.2037),
+    "B05": (0.049949486, 0.023617674),
+    "B06": (0.07207413, 0.030981975),
+    "B07": (0.084782995, 0.038819022),
+    "B08": (0.08217743, 0.039935715),
+    "B8A": (0.047593687, 0.026250929),
+    "B09": (0.06611737, 0.025843639),
+    "B11": (0.050346848, 0.034246925),
+    "B12": (0.092849344, 0.04398858),
+}
 
 
 MAX_CLOUD_COVER = 30

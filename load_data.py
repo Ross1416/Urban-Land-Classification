@@ -6,7 +6,7 @@ matplotlib.use('qtagg')
 
 import matplotlib.colors as mcolors
 
-from fcns_classify import *
+from data import *
 
 
 if __name__ == "__main__":
@@ -37,8 +37,8 @@ if __name__ == "__main__":
                                  ncols=2)
         axes = axes.flatten()
         idImage = 0
-        strideRows = 16
-        strideCols = 16
+        strideRows = 64
+        strideCols = 64
         # strideRows = round(len(data[{"t": 0}].values[0])/64)
         # strideCols = round(len(data[{"t": 0}].values[0]) / 64)
         classScores = np.zeros((
@@ -69,9 +69,9 @@ if __name__ == "__main__":
                     # cnn_image = np.dstack([normalise_band_for_CNN(redArr),
                     #                        normalise_band_for_CNN(greenArr),
                     #                        normalise_band_for_CNN(blueArr)])
-                    cnn_image = np.dstack([normalise_band_for_CNN(redArr, 0.3398, 0.2037),
-                     normalise_band_for_CNN(greenArr, 0.3804, 0.1375),
-                     normalise_band_for_CNN(blueArr, 0.4025, 0.1161)])
+                    cnn_image = np.dstack([normalise_band(redArr, 0.3398, 0.2037),
+                     normalise_band(greenArr, 0.3804, 0.1375),
+                     normalise_band(blueArr, 0.4025, 0.1161)])
 
                     cnn_image = np.expand_dims(cnn_image, axis=0)
 

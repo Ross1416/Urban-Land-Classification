@@ -1,5 +1,7 @@
-from fcns_download import *
-
+from data import *
+import matplotlib
+matplotlib.use("QtAgg")  # or "TkAgg"
+import matplotlib.pyplot as plt
 # ---------------- Global Variables ----------------
 BANDS = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09","B11", "B12"]
 MAX_CLOUD_COVER = 30
@@ -37,7 +39,7 @@ if __name__ == "__main__":
                     # Create a new figure for each set of images
                     fig, axes = plt.subplots(1, 2, figsize=(12, 6), dpi=90, sharey=True)
 
-                    maxVal = 3000
+                    maxVal = 2750
 
                     # Plot RGB image
                     data[{"t": i}].plot.imshow(vmin=0, vmax=maxVal, ax=axes[0])
@@ -58,13 +60,13 @@ if __name__ == "__main__":
 
                     plt.figure(figsize=(6, 4), dpi=90)
                     plt.bar(bin_edges[:-1], hist_values, width=np.diff(bin_edges), color="black", edgecolor="white")
-                    plt.title("Histogram")
+                    plt.title("Histogram (Clipping=2750)")
                     plt.xlabel("Pixel Value")
                     plt.ylabel("Frequency")
                     plt.show()
 
                     # If histogram has too much white (cloud) don't include
-                    if hist_values[255] > data.shape[-2]*data.shape[-1]*0.01:
+                    if hist_values[255] > data.shape[-2]*data.shape[-1]*0.03:
                         print("Too much cloud")
                         continue
 

@@ -34,22 +34,22 @@ def classify(model, data, class_labels, stride):
                 greenArr = data[{"t": k}].values[1, i:i + 64, j:j + 64]
                 blueArr = data[{"t": k}].values[2, i:i + 64, j:j + 64]
 
-                # # Double check not too much cloud cover before NN
-                # if check_cloud(redArr, greenArr, blueArr, 64, 64):
-                #     # Too much cloud
-                #     predicted_class = len(class_labels) - 2
-                # else:
-                # Classify patch
-                cnn_image = np.dstack([normalise_band_for_CNN(redArr, 0.3398, 0.2037),
-                                       normalise_band_for_CNN(greenArr, 0.3804, 0.1375),
-                                       normalise_band_for_CNN(blueArr,0.4025, 0.1161)])
-                cnn_image = np.expand_dims(cnn_image, axis=0)
+                # Double check not too much cloud cover before NN
+                if check_cloud(redArr, greenArr, blueArr, 64, 64):
+                    # Too much cloud
+                    predicted_class = len(class_labels) - 2
+                else:
+                    # Classify patch
+                    cnn_image = np.dstack([normalise_band_for_CNN(redArr, 0.3398, 0.2037),
+                                           normalise_band_for_CNN(greenArr, 0.3804, 0.1375),
+                                           normalise_band_for_CNN(blueArr,0.4025, 0.1161)])
+                    cnn_image = np.expand_dims(cnn_image, axis=0)
 
-                # Predict
-                predictions = model.predict(cnn_image)
+                    # Predict
+                    predictions = model.predict(cnn_image)
 
-                # Get the predicted class index
-                predicted_class = int(np.argmax(predictions, axis=1)[0])
+                    # Get the predicted class index
+                    predicted_class = int(np.argmax(predictions, axis=1)[0])
 
                 # Add to each pixel of patch that it was found to be class x
                 for rows in range(i, i + 64):

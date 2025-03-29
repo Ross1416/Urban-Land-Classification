@@ -5,13 +5,6 @@ from PyQt5.QtWidgets import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
-
-
-
-# from fcns_classify import *
-# from fcns_preprocess import *
-# from fcns_download import *
-
 import xarray as xr
 from ui_workers import *
 from data import *
