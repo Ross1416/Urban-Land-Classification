@@ -86,14 +86,15 @@ for class_name in class_names:
             img_path = os.path.join(class_path, img_file)
             try:
                 with rasterio.open(img_path) as img:
-                    image_array = img.read([2, 3, 4])
+                    image_array = img.read()
+                    np.delete(image_array, 10, axis=2)
                     image_array = np.transpose(
                         image_array, (1, 2, 0)
                     )  # (H, W, C)
                 image_array = tf.image.resize(
                     image_array, (num_rows, num_cols)
                 ).numpy()
-                image_array = np.clip(image_array, 0, 2750)
+                image_array = np.clip(image_array, 0, 5000)
                 data.append(image_array)
                 labels.append(class_name)
             except Exception as e:
