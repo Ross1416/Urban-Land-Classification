@@ -11,6 +11,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.mixed_precision import set_global_policy
 from tensorflow.keras.regularizers import l1_l2
+from tensorflow.keras.losses import CategoricalCrossentropy
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
@@ -44,7 +45,8 @@ def set_global_seed(seed=42):
 set_global_seed(42)
 
 # Hyperparameters
-optimizer_algorithm = Adam(learning_rate=0.00003)
+optimizer_algorithm = Adam(learning_rate=0.0001)
+loss_function = CategoricalCrossentropy(label_smoothing=0.1)
 number_epoch = 100
 batch_length = 16
 show_inter_results = 1
@@ -195,7 +197,7 @@ print("Model built")
 
 # Compile Model
 print("Compiling model...")
-model.compile(loss='categorical_crossentropy', optimizer=optimizer_algorithm, metrics=['accuracy'])
+model.compile(loss=loss_function, optimizer=optimizer_algorithm, metrics=['accuracy'])
 print("Model compiled")
 
 # ======================================= Training ==========================================
