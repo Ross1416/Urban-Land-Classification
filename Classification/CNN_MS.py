@@ -35,16 +35,9 @@ def set_global_seed(seed=42):
     tf.random.set_seed(seed)
     print(f"✅ Global seed set to {seed}")
 
+
 # Start measuring total execution time
 total_start_time = time.time()
-
-# Define Normalisation Function
-def normalise_band(band, mean, std):
-    band = np.nan_to_num(band, nan=0)
-    band = ((band - np.mean(band)) / (np.std(band) + 1e-8)) * std + mean
-    band = np.clip(band, 0, 1)
-    return band
-
 
 # Set seed
 set_global_seed()
@@ -58,7 +51,7 @@ show_inter_results = 1
 num_rows, num_cols, num_bands = (
     64,
     64,
-    12,
+    3,
 )  # 12 bands for MS data (excluding B10)
 
 # Regularization Parameters
@@ -93,15 +86,14 @@ for class_name in class_names:
             img_path = os.path.join(class_path, img_file)
             try:
                 with rasterio.open(img_path) as img:
-                    image_array = img.read()
+                    image_array = img.read([2, 3, 4])
                     image_array = np.transpose(
                         image_array, (1, 2, 0)
                     )  # (H, W, C)
-                    image_array = np.delete(image_array, 10, axis=2)
                 image_array = tf.image.resize(
                     image_array, (num_rows, num_cols)
                 ).numpy()
-                image_array = np.clip(image_array, 0, 5000)
+                image_array = np.clip(image_array, 0, 2750)
                 data.append(image_array)
                 labels.append(class_name)
             except Exception as e:
@@ -123,23 +115,6 @@ for band in range(data.shape[-1]):
         print(f"WARNING: max_val of {band} is <=0 ")
 
 
-# print(data.shape)
-#
-# img = data[0]
-# fig, axes = plt.subplots(1, 12, figsize=(24, 2))
-#
-# # Generate example data
-# # Plot in each subplot
-# for i, ax in enumerate(axes):
-#     ax.imshow(img[:,:,i], cmap='gray')
-#     ax.set_title(f"Subplot {i+1}")
-#     ax.axis("off")
-#
-# plt.tight_layout()
-# plt.show()
-#
-# exit()
-# Encode labels
 label_encoder = LabelEncoder()
 labels = label_encoder.fit_transform(labels)
 y = to_categorical(labels)
@@ -223,7 +198,7 @@ print(f"Training completed in {training_time:.2f} seconds.")
 
 # Save Model
 print("Saving the trained model...")
-model.save("eurosat_ms_model_v3.keras")
+model.save("eurosat_test.keras")
 print("Model saved successfully.")
 
 # Evaluate Model
