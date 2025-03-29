@@ -75,6 +75,8 @@ if __name__ == "__main__":
 
                     cnn_image = np.expand_dims(cnn_image, axis=0)
 
+                    print(cnn_image.shape)
+
                     # Predict
                     predictions = model.predict(cnn_image)
 
