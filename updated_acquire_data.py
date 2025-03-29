@@ -76,7 +76,7 @@ if __name__ == "__main__":
                         continue
 
                     # If any in shadow don't include:
-                    if np.sum(hist_values[0:5]) > 200:
+                    if np.sum(hist_values[0:5]) > data.shape[-2]*data.shape[-1]*0.05:
                         print("Too dark")
                         continue
 

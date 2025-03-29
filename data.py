@@ -19,11 +19,19 @@ def normalise_band(band, mean, std):
     return band
 
 def check_cloud(red, green, blue, width, height):
-    gray = 0.2989 * red + 0.5870 * green + 0.1140 * blue
+    red = np.clip(red, 0, 2750)
+    green = np.clip(green, 0, 2750)
+    blue = np.clip(blue, 0, 2750)
+    gray = (0.2989 * red + 0.5870 * green + 0.1140 * blue) / 2750 * 255
 
-    hist_values, bin_edges = np.histogram(gray, bins=256, range=(0, 256))
+    hist_values, bin_edges = np.histogram(gray, bins=255, range=(0, 255))
 
-    if hist_values[255] > width * height * 0.01:
+    if np.sum(hist_values[180:254]) > width * height * 0.08:
+        print("Cloud")
+        return 1
+
+    if np.sum(hist_values[0:12]) > width * height * 0.02:
+        print("Shadow")
         return 1
 
     return 0
@@ -56,14 +64,18 @@ def classify(model, data, class_labels, normalisation_values, RGB_only=False, st
 
                 # Classify patch
                 bands_arr = []
+                rgb_bands = []
                 for x, band in enumerate(bands):
                     mean, std = list(normalisation_values.values())[x]
+
+                    if list(normalisation_values.keys())[x] in RGB_BANDS:
+                        rgb_bands.append(band)
+                        if RGB_only:
+                            bands_arr.append(normalise_band(band, mean, std))
+
                     # If RGB_only=true, look at only the RGB bands
 
-                    if RGB_only:
-                        if list(normalisation_values.keys())[x] in RGB_BANDS:
-                            bands_arr.append(normalise_band(band, mean, std))
-                    else:
+                    if not(RGB_only):
                         band = normalise_band(band, mean, std)
                         # Interpolate
                         # print("interpolating")
@@ -83,32 +95,32 @@ def classify(model, data, class_labels, normalisation_values, RGB_only=False, st
                         band = spline(y_new, x_new)
                         bands_arr.append(band)
 
-                if RGB_only:
-                    bands_arr.reverse()
+                rgb_bands.reverse()
+                R = rgb_bands[2]  # Red
+                G = rgb_bands[1]  # Green
+                B = rgb_bands[0]  # Blue
+                if (check_cloud(R, G, B, 64, 64)):
+                    predicted_class = len(class_labels) - 2
+                else:
+                    if RGB_only:
+                        bands_arr.reverse()
+                        cnn_image = np.dstack(bands_arr)
 
-                cnn_image = np.dstack(bands_arr)
+                        cnn_image = np.expand_dims(cnn_image, axis=0)
+                        # Predict
+                        predictions = model.predict(cnn_image)
 
-                # if j==0:
-                #     print(cnn_image.shape)
-                #     img = cnn_image
-                #     fig, axes = plt.subplots(1, 12, figsize=(24, 2))
-                #
-                #     # Generate example data
-                #     # Plot in each subplot
-                #     for i, ax in enumerate(axes):
-                #         ax.imshow(img[:, :, i], cmap='gray')
-                #         ax.set_title(f"Subplot {i + 1}")
-                #         ax.axis("off")
-                #
-                #     plt.tight_layout()
-                #     plt.savefig("plot.png")
+                        # Get the predicted class index
+                        predicted_class = int(np.argmax(predictions, axis=1)[0])
+                    else:
+                        cnn_image = np.dstack(bands_arr)
 
-                cnn_image = np.expand_dims(cnn_image, axis=0)
-                # Predict
-                predictions = model.predict(cnn_image)
+                        cnn_image = np.expand_dims(cnn_image, axis=0)
+                        # Predict
+                        predictions = model.predict(cnn_image)
 
-                # Get the predicted class index
-                predicted_class = int(np.argmax(predictions, axis=1)[0])
+                        # Get the predicted class index
+                        predicted_class = int(np.argmax(predictions, axis=1)[0])
 
                 # Add to each pixel of patch that it was found to be class x
                 for rows in range(i, i + 64):

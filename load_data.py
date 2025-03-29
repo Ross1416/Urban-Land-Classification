@@ -8,7 +8,6 @@ import matplotlib.colors as mcolors
 
 from data import *
 
-
 if __name__ == "__main__":
     # file_path = 'data/Stepps_3x3_2016to2021.nc'
     file_path = 'data/Arles_3x3_2016to2023.nc'
