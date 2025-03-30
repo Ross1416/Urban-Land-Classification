@@ -51,7 +51,7 @@ show_inter_results = 1
 num_rows, num_cols, num_bands = (
     64,
     64,
-    3,
+    12,
 )  # 12 bands for MS data (excluding B10)
 
 # Regularization Parameters
@@ -62,7 +62,7 @@ l1_reg, l2_reg = 0.0002, 0.001
 # data_dir = "C:/Users/Chris/Desktop/EuroSAT/EuroSAT_MS"
 data_dir = "../../../data/EuroSATallBands/"
 band_stats_path = "band_statistics.csv"
-max_images_per_class = 250  # Limit dataset size
+max_images_per_class = 2000  # Limit dataset size
 
 
 # Measure data loading time
@@ -86,12 +86,10 @@ for class_name in class_names:
             try:
                 with rasterio.open(img_path) as img:
                     image_array = img.read()
-                    image_array = np.delete(
-                        image_array, [0, 4, 5, 6, 7, 8, 9, 10, 11, 12], axis=0
-                    )
+                    image_array = np.delete(image_array, [10], axis=0)
                     image_array = np.transpose(image_array, (1, 2, 0))  # (H, W, C)
                 image_array = tf.image.resize(image_array, (num_rows, num_cols)).numpy()
-                image_array = np.clip(image_array, 0, 2750)
+                image_array = np.clip(image_array, 0, 5000)
                 data.append(image_array)
                 labels.append(class_name)
             except Exception as e:
@@ -207,7 +205,7 @@ print(f"Training completed in {training_time:.2f} seconds.")
 
 # Save Model
 print("Saving the trained model...")
-model.save("eurosat_ms_only[1,2,3]_250.keras")
+model.save("eurosat_ms.keras")
 print("Model saved successfully.")
 
 # Evaluate Model
