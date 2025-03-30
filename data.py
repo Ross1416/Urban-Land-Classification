@@ -110,7 +110,6 @@ def classify(
                         band = spline(y_new, x_new)
                         bands_arr.append(band)
 
-<<<<<<< HEAD
                 rgb_bands.reverse()
                 R = rgb_bands[2]  # Red
                 G = rgb_bands[1]  # Green
@@ -121,10 +120,6 @@ def classify(
                     if RGB_only:
                         bands_arr.reverse()
                         cnn_image = np.dstack(bands_arr)
-=======
-                if RGB_only:
-                  bands_arr.reverse()
->>>>>>> 6338b37 (fixed for ms)
 
                         cnn_image = np.expand_dims(cnn_image, axis=0)
                         # Predict
