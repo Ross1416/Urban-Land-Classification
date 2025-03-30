@@ -59,8 +59,8 @@ use_l1, use_l2 = True, True
 l1_reg, l2_reg = 0.0002, 0.001
 
 # Define Data Path
-# data_dir = "C:/Users/Chris/Desktop/EuroSAT/EuroSAT_MS"
-data_dir = "../../../data/EuroSATallBands/"
+data_dir = "C:/Users/Chris/Desktop/EuroSAT/EuroSAT_MS"
+# data_dir = "../../../data/EuroSATallBands/"
 band_stats_path = "band_statistics.csv"
 max_images_per_class = 2000  # Limit dataset size
 
@@ -80,15 +80,21 @@ for class_name in class_names:
         selected_files = random.sample(
             img_files, min(len(img_files), max_images_per_class)
         )
-        print(f"Loading {len(selected_files)} images for class '{class_name}'...")
+        print(
+            f"Loading {len(selected_files)} images for class '{class_name}'..."
+        )
         for img_file in selected_files:
             img_path = os.path.join(class_path, img_file)
             try:
                 with rasterio.open(img_path) as img:
                     image_array = img.read()
                     image_array = np.delete(image_array, 11, axis=0)
-                    image_array = np.transpose(image_array, (1, 2, 0))  # (H, W, C)
-                image_array = tf.image.resize(image_array, (num_rows, num_cols)).numpy()
+                    image_array = np.transpose(
+                        image_array, (1, 2, 0)
+                    )  # (H, W, C)
+                image_array = tf.image.resize(
+                    image_array, (num_rows, num_cols)
+                ).numpy()
                 image_array = np.clip(image_array, 0, 5000)
                 data.append(image_array)
                 labels.append(class_name)
@@ -120,17 +126,19 @@ print(f"Data shape: {data.shape}, Labels shape: {y.shape}")
 
 # Train-Test Split
 X_train, X_test, y_train, y_test = train_test_split(
-    data, y, test_size=0.2, random_state=1, stratify=labels
+    data, y, test_size=0.2, random_state=1, stratify=y
+)
+
+X_test, X_val, y_test, y_val = train_test_split(
+    X_test, y_test, test_size=0.5, random_state=1, stratify=y_test
 )
 
 print(X_train.shape)
 print(X_test.shape)
+print(y_val.shape)
+print(y_val.shape)
 print(y_train.shape)
 print(y_test.shape)
-
-X_val, X_test, y_val, y_test = train_test_split(
-    X_test, y_test, test_size=0.5, random_state=1  # , stratify=labels
-)
 
 # Learning Rate Scheduler
 lr_scheduler = ReduceLROnPlateau(
