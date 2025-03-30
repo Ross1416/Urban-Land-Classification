@@ -51,7 +51,7 @@ show_inter_results = 1
 num_rows, num_cols, num_bands = (
     64,
     64,
-    12,
+    10,
 )  # 12 bands for MS data (excluding B10)
 
 # Regularization Parameters
@@ -88,7 +88,7 @@ for class_name in class_names:
             try:
                 with rasterio.open(img_path) as img:
                     image_array = img.read()
-                    image_array = np.delete(image_array, 11, axis=0)
+                    image_array = np.delete(image_array, [1, 10, 11], axis=0)
                     image_array = np.transpose(
                         image_array, (1, 2, 0)
                     )  # (H, W, C)
