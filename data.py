@@ -13,12 +13,17 @@ import matplotlib
 matplotlib.use("agg")
 
 
-def normalise_band(band, mean, std):
+def normalise_band_rgb(band, mean, std):
     band = np.nan_to_num(band, nan=0)
     band = np.clip(band, 0, 2750)
     band /= 2750
-    # band = ((band-np.mean(band))/(np.std(band)+ 1e-8))*std+mean
-    # band = np.clip(band,0,1)
+    return band
+
+
+def normalise_band_ms(band):
+    band = np.nan_to_num(band, nan=0)
+    band = np.clip(band, 0, 5000)
+    band /= 5000
     return band
 
 
@@ -41,9 +46,7 @@ def check_cloud(red, green, blue, width, height):
     return 0
 
 
-def classify(
-    model, data, class_labels, normalisation_values, RGB_only=False, stride=64
-):
+def classify(model, data, class_labels, RGB_only=False, stride=64):
     class_map = []
 
     # Classify images for each year
@@ -79,17 +82,16 @@ def classify(
                 bands_arr = []
                 rgb_bands = []
                 for x, band in enumerate(bands):
-                    mean, std = list(normalisation_values.values())[x]
 
-                    if list(normalisation_values.keys())[x] in RGB_BANDS:
+                    if list(BAND_RESOLUTION.keys())[x] in RGB_BANDS:
                         rgb_bands.append(band)
                         if RGB_only:
-                            bands_arr.append(normalise_band(band, mean, std))
+                            bands_arr.append(normalise_band_rgb(band))
 
                     # If RGB_only=true, look at only the RGB bands
 
-                    if not(RGB_only):
-                        band = normalise_band(band, mean, std)
+                    if not (RGB_only):
+                        band = normalise_band_ms(band)
                         # Interpolate
                         # print("interpolating")
                         size = int(list(BAND_RESOLUTION.values())[x])
@@ -114,7 +116,7 @@ def classify(
                 R = rgb_bands[2]  # Red
                 G = rgb_bands[1]  # Green
                 B = rgb_bands[0]  # Blue
-                if (check_cloud(R, G, B, 64, 64)):
+                if check_cloud(R, G, B, 64, 64):
                     predicted_class = len(class_labels) - 2
                 else:
                     if RGB_only:
@@ -227,7 +229,7 @@ def download_dataset(
             # Generate time ranges for March of each year from 2014 to 2024
             temporal_extent = [f"{year}-04-01", f"{year}-06-28"]
             # temporal_extent = [f"{year}-01-01", f"{year}-12-28"]
-            print(north,south,east,west)
+            print(north, south, east, west)
             datacube = con.load_collection(
                 "SENTINEL2_L2A",
                 spatial_extent={
@@ -322,38 +324,9 @@ ALL_BANDS = [
     "B12",
 ]
 RGB_BANDS = ["B04", "B03", "B02"]
-# BAND_NORMALISATION_VALUES = {
-#     "B01": (0.0763954,0.013842635),
-#     "B02": (0.039900124, 0.011908601),
-#     "B03": (0.0372102, 0.014114987),
-#     "B04": (0.033805475, 0.021231387),
-#     "B05": (0.049949486,0.023617674),
-#     "B06": (0.07207413,0.030981975),
-#     "B07": (0.084782995,0.038819022),
-#     "B08": (0.08217743,0.039935715),
-#     "B8A": (0.047593687,0.026250929),
-#     "B09": (0.06611737,0.025843639),
-#     "B11": (0.050346848,0.034246925),
-#     "B12": (0.092849344,0.04398858),
-# }
-
-# BAND_NORMALISATION_VALUES = {
-#     "B01": (0.27073746,0.048857192),
-#     "B02": (0.223406, 0.06586568),
-#     "B03": (0.20833384, 0.0781746),
-#     "B04": (0.18923364, 0.11786194),
-#     "B05": (0.23979506,0.11283984),
-#     "B06": (0.40054204,0.1717241),
-#     "B07": (0.47429512,0.21576442),
-#     "B08": (0.4598104,0.22216458),
-#     "B8A": (0.14643246,0.0807013),
-#     "B09": (0.066117596,0.025843601),
-#     "B11": (0.22353914,0.15123488),
-#     "B12": (0.51832534,0.24237852),
-# }
 
 BAND_RESOLUTION = {
-    "B01": 16,  # 60, ## SHOULD BE 10
+    "B01": 16,  # 60,
     "B02": 64,  # 10,
     "B03": 64,  # 10,
     "B04": 64,  # 10,
@@ -362,29 +335,9 @@ BAND_RESOLUTION = {
     "B07": 32,  # 20,
     "B08": 64,  # 10,
     "B8A": 32,  # 20,
-    "B09": 16,  # 60, ## SHOULD BE 10
+    "B09": 16,  # 60,
     "B11": 32,  # 20,
     "B12": 32,  # 20,
-}
-
-# RGB_BAND_NORMALISATION_VALUES = {
-#     "B02": (0.4025, 0.1161),
-#     "B03": (0.3804, 0.1375),
-#     "B04": (0.3398, 0.2037),
-# }
-BAND_NORMALISATION_VALUES = {
-    "B01": (0.0763954, 0.013842635),
-    "B02": (0.4025, 0.1161),
-    "B03": (0.3804, 0.1375),
-    "B04": (0.3398, 0.2037),
-    "B05": (0.049949486, 0.023617674),
-    "B06": (0.07207413, 0.030981975),
-    "B07": (0.084782995, 0.038819022),
-    "B08": (0.08217743, 0.039935715),
-    "B8A": (0.047593687, 0.026250929),
-    "B09": (0.06611737, 0.025843639),
-    "B11": (0.050346848, 0.034246925),
-    "B12": (0.092849344, 0.04398858),
 }
 
 
