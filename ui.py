@@ -505,7 +505,7 @@ DATA_EXTENSION = ".nc"
 MODEL_PATH = "./Classification/"
 MODEL_EXTENSION = ".keras"
 BLOCK_SIZE = 1
-ALPHA = 120
+ALPHA = 140
 
 class_labels = [
         "Annual Crop", "Forest", "Herbaceous Vegetation", "Highway",

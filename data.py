@@ -194,7 +194,8 @@ def download_dataset(location, width, height, north, south, east, west, bands, c
         if not os.path.exists(saveLocation) and saveLocation is not None:
             # Generate time ranges for March of each year from 2014 to 2024
             temporal_extent = [f"{year}-04-01", f"{year}-06-28"]
-
+            # temporal_extent = [f"{year}-01-01", f"{year}-12-28"]
+            print(north,south,east,west)
             datacube = con.load_collection(
                 "SENTINEL2_L2A",
                 spatial_extent={"west": west, "south": south, "east": east, "north": north},
@@ -212,6 +213,7 @@ def combine_dataset(location, height, width, start_year, end_year):
     # Combine Dataset
     datasets = []
     for year in range(start_year, end_year + 1):
+        print(year)
         file_path = f"./data/{location}_{height}x{width}_{year}.nc"
         try:
             ds = xr.load_dataset(file_path)
@@ -239,10 +241,10 @@ def combine_dataset(location, height, width, start_year, end_year):
                     print("Too much cloud")
                     continue
 
-                # If any NaN don't include:
-                if hist_values[0] > 30:
-                    print("Contained NaN")
-                    continue
+                # # If any NaN don't include:
+                # if hist_values[0] > 30:
+                #     print("Contained NaN")
+                #     continue
 
                 # If any in shadow don't include:
                 if np.sum(hist_values[0:5]) > data.shape[-2] * data.shape[-1] * 0.01:
@@ -332,7 +334,7 @@ BAND_NORMALISATION_VALUES ={
 }
 
 
-MAX_CLOUD_COVER = 30
+MAX_CLOUD_COVER = 5
 if __name__ == "__main__":
     import matplotlib
     import matplotlib.pyplot as plt
