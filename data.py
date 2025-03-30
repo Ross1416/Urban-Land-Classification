@@ -14,8 +14,9 @@ matplotlib.use("agg")
 def normalise_band(band, mean, std):
     band = np.nan_to_num(band, nan=0)
     band = np.clip(band, 0, 2750)
-    band = ((band-np.mean(band))/(np.std(band)+ 1e-8))*std+mean
-    band = np.clip(band,0,1)
+    band /= 2750
+    # band = ((band-np.mean(band))/(np.std(band)+ 1e-8))*std+mean
+    # band = np.clip(band,0,1)
     return band
 
 def check_cloud(red, green, blue, width, height):

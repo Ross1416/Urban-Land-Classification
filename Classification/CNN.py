@@ -1,6 +1,7 @@
-# Libraries
+# ======================================= Libraries ==========================================
 import numpy as np
 import os
+import random
 import time
 import tensorflow as tf
 from tensorflow.keras.utils import to_categorical
@@ -10,12 +11,15 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.mixed_precision import set_global_policy
 from tensorflow.keras.regularizers import l1_l2
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.losses import CategoricalCrossentropy
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+
+# ======================================= init ==========================================
 
 print("Hardware: ", tf.config.list_physical_devices('GPU'))
 
@@ -28,10 +32,22 @@ total_start_time = time.time()
 set_global_policy('mixed_float16')
 print("Enabled Mixed Precision Training")
 
-# Parameters
-np.random.seed(1)
-optimizer_algorithm = Adam(learning_rate=0.00003)
-number_epoch = 200
+
+# Set random seeds
+def set_global_seed(seed=42):
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    tf.random.set_seed(seed)
+    print("Seed set ")
+
+
+set_global_seed(42)
+
+# Hyperparameters
+optimizer_algorithm = Adam(learning_rate=0.0001)
+loss_function = CategoricalCrossentropy(label_smoothing=0.1)
+number_epoch = 100
 batch_length = 16
 show_inter_results = 1
 num_rows = 64
@@ -42,6 +58,9 @@ use_l1 = True  # Set to True to enable L1 regularization
 use_l2 = True  # Set to True to enable L2 regularization
 l1_reg = 0.0001  # L1 regularization strength
 l2_reg = 0.00075  # L2 regularization strength
+
+
+# ======================================= Data Loading ==========================================
 
 # Define Data Path
 data_dir = '/Users/andrewferguson/EuroSAT/EuroSAT_RGB'  # Update this path if needed
@@ -69,13 +88,12 @@ labels = to_categorical(labels, num_classes=len(class_names))
 
 # Train-Test Split
 print("Splitting data into training and testing sets...")
-X_train_paths, X_test_paths, y_train, y_test = train_test_split(image_paths, labels, test_size=0.2, random_state=1, stratify=labels)
-print(f"Training set: {len(X_train_paths)} images, Testing set: {len(X_test_paths)} images")
+X_train_paths, X_temp_paths, y_train, y_temp = train_test_split(image_paths, labels, test_size=0.2, random_state=42, stratify=labels)
+labels_temp = np.argmax(y_temp, axis=1)
+X_test_paths, X_val_paths, y_test, y_val = train_test_split(X_temp_paths, y_temp, test_size=0.5, random_state=42, stratify=labels_temp)
+print(f"Training set: {len(X_train_paths)} images, Validation set: {len(X_val_paths)} images, Test set: {len(X_test_paths)} images")
 
-# Define Callbacks
-lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, verbose=1, min_lr=1e-6)
-early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True, verbose=1)
-
+# Function to read in and normalized images
 def parse_image(img_path, label):
     img = tf.io.read_file(img_path)
     img = tf.image.decode_jpeg(img, channels=3)
@@ -83,27 +101,18 @@ def parse_image(img_path, label):
     img = img / 255.0  # Normalize
     return img, label
 
-
+# Function to augment data
 def augment_image(image, label):
     image = tf.image.random_flip_left_right(image)
     image = tf.image.random_flip_up_down(image)
-    image = tf.image.random_brightness(image, max_delta=0.4)
-    image = tf.image.random_contrast(image, lower=0.6, upper=1.5)
-    image = tf.image.random_saturation(image, lower=0.6, upper=1.5)
-    image = tf.image.random_hue(image, max_delta=0.1)
+    image = tf.image.random_brightness(image, max_delta=0.2)
+    image = tf.image.random_contrast(image, lower=0.8, upper=1.2)
+    image = tf.image.random_saturation(image, lower=0.8, upper=1.2)
+    image = tf.image.random_hue(image, max_delta=0.05)
     image = tf.clip_by_value(image, 0.0, 1.0)
-
-    # Random Gaussian noise
-    noise = tf.random.normal(shape=tf.shape(image), mean=0.0, stddev=0.01)
-    image = tf.clip_by_value(image + noise, 0.0, 1.0)
-
-    # Randomly convert to grayscale
-    if tf.random.uniform([]) < 0.3:  # 50% chance
-        image = tf.image.rgb_to_grayscale(image)
-        image = tf.image.grayscale_to_rgb(image)
-
     return image, label
 
+# Build dataset
 def build_dataset(image_paths, labels, batch_size=20, augment=True):
     dataset = tf.data.Dataset.from_tensor_slices((image_paths, labels))
     dataset = dataset.map(parse_image, num_parallel_calls=tf.data.AUTOTUNE)
@@ -116,7 +125,11 @@ def build_dataset(image_paths, labels, batch_size=20, augment=True):
 
 print("Building TensorFlow datasets...")
 train_dataset = build_dataset(X_train_paths, y_train, batch_length)
-test_dataset = build_dataset(X_test_paths, y_test, batch_length)
+val_dataset = build_dataset(X_val_paths, y_val, batch_length, augment=False)
+test_dataset = build_dataset(X_test_paths, y_test, batch_length, augment=False)
+print("BuiltTensorFlow datasets")
+
+# ======================================= Example Input Images ==========================================
 
 # Fetch a batch of augmented images from the dataset
 sample_batch = next(iter(train_dataset))
@@ -143,9 +156,14 @@ plt.savefig('Augmented Data.png')
 data_loading_time = time.time() - start_data_time
 print(f"Data loading completed in {data_loading_time:.2f} seconds.")
 
+# ======================================= Build model ==========================================
+
 # Build Model
 print("Building the CNN model...")
+
 regularizer = l1_l2(l1=l1_reg if use_l1 else 0.0, l2=l2_reg if use_l2 else 0.0)
+lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, verbose=1, min_lr=1e-6)
+early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True, verbose=1)
 
 model = Sequential([
 
@@ -179,8 +197,10 @@ print("Model built")
 
 # Compile Model
 print("Compiling model...")
-model.compile(loss='categorical_crossentropy', optimizer=optimizer_algorithm, metrics=['accuracy'])
+model.compile(loss=loss_function, optimizer=optimizer_algorithm, metrics=['accuracy'])
 print("Model compiled")
+
+# ======================================= Training ==========================================
 
 # Measure training time
 print("🚀 Starting training...")
@@ -189,16 +209,17 @@ start_train_time = time.time()
 history = model.fit(train_dataset,
                     epochs=number_epoch,
                     verbose=show_inter_results,
-                    validation_data=test_dataset,
+                    validation_data=val_dataset,
                     callbacks=[lr_scheduler, early_stopping])
 
 training_time = time.time() - start_train_time
 print(f"Training completed in {training_time:.2f} seconds.")
 
 print("Saving the trained model...")
-model.save("eurosat_model_augmented_2.keras")
+model.save("eurosat_model_augmented_report.keras")
 print("Model saved successfully.")
 
+# ======================================= Testing ==========================================
 # Evaluate Model
 print("Evaluating model on test dataset...")
 start_eval_time = time.time()
@@ -210,11 +231,8 @@ print(f"Evaluation completed in {eval_time: .2f} seconds.")
 
 # Generate Predictions for Confusion Matrix
 y_true = []
-X_test_images = []
-
 for image_batch, label_batch in test_dataset:
     y_true.extend(np.argmax(label_batch.numpy(), axis=1))  # Convert one-hot to class indices
-
 y_true = np.array(y_true)
 
 y_pred_probs = model.predict(test_dataset)  # Get probability outputs
@@ -223,8 +241,25 @@ y_pred = np.argmax(y_pred_probs, axis=1)  # Convert probabilities to class predi
 # Compute Confusion Matrix
 conf_matrix = confusion_matrix(y_true, y_pred)
 
-# Display Classification Report
-print("Classification Report:\n", classification_report(y_true, y_pred, target_names=class_names))
+# Save Classification Metrics
+accuracy = accuracy_score(y_true, y_pred)
+precision = precision_score(y_true, y_pred, average='weighted', zero_division=0)
+recall = recall_score(y_true, y_pred, average='weighted', zero_division=0)
+f1 = f1_score(y_true, y_pred, average='weighted', zero_division=0)
+
+metrics_df = pd.DataFrame({
+    'Metric': ['Accuracy', 'Precision', 'Recall', 'F1 Score'],
+    'Value': [accuracy, precision, recall, f1]
+})
+
+metrics_df.to_csv('metrics.csv', index=False)
+print("Saved accuracy, precision, recall, and F1 score to metrics.csv")
+
+# Generate and save classification report
+report_dict = classification_report(y_true, y_pred, target_names=class_names, output_dict=True)
+report_df = pd.DataFrame(report_dict).transpose()
+report_df.to_csv('classification_report.csv', index=True)
+print("Saved classification report to classification_report.csv")
 
 # Plot Confusion Matrix
 plt.figure(figsize=(16, 14))

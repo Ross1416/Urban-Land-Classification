@@ -505,16 +505,27 @@ DATA_EXTENSION = ".nc"
 MODEL_PATH = "./Classification/"
 MODEL_EXTENSION = ".keras"
 BLOCK_SIZE = 1
-ALPHA = 150
+ALPHA = 120
 
 class_labels = [
         "Annual Crop", "Forest", "Herbaceous Vegetation", "Highway",
         "Industrial", "Pasture", "Permanent Crop", "Residential",
-        "River", "Sea/Lake", "Cloud", "Undefined"
+        "River", "Sea/Lake", "Cloud/Shadow", "Undefined"
     ]
-class_colours = ["#E57373", "#64B5F6", "#81C784", "#FFD54F",
-    "#BA68C8", "#F06292", "#4DB6AC", "#FF8A65",
-    "#DCE775", "#A1887F", "#7986CB", "#4A4947"]
+
+class_colours = [
+    "#3e857e", "#6a9c48", "#81C784", "#FFD54F",
+    "#BA68C8", "#DCE775", "#4DB6AC", "#FF8A65",
+    "#64B5F6", "#7986CB", "#b0b0b0", "#4A4947"
+]
+#E57373 : annual crop
+
+# old
+# class_colours = [
+#     "#E57373", "#64B5F6", "#81C784", "#FFD54F",
+#     "#BA68C8", "#F06292", "#4DB6AC", "#FF8A65",
+#     "#DCE775", "#A1887F", "#7986CB", "#4A4947"
+# ]
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
