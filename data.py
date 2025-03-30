@@ -99,9 +99,7 @@ def classify(
                         img_downsampled = band[::step, ::step]
                         # print(np.array(img_downsampled).shape)
 
-                        x_original = np.linspace(
-                            0, 1, size
-                        )  # 32 points in original
+                        x_original = np.linspace(0, 1, size)  # 32 points in original
                         y_original = np.linspace(0, 1, size)
                         x_new = np.linspace(0, 1, 64)  # 64 target points
                         y_new = np.linspace(0, 1, 64)
@@ -112,7 +110,6 @@ def classify(
                         band = spline(y_new, x_new)
                         bands_arr.append(band)
 
-<<<<<<< HEAD
                 rgb_bands.reverse()
                 R = rgb_bands[2]  # Red
                 G = rgb_bands[1]  # Green
@@ -123,10 +120,6 @@ def classify(
                     if RGB_only:
                         bands_arr.reverse()
                         cnn_image = np.dstack(bands_arr)
-=======
-                # if RGB_only:
-                #   bands_arr.reverse()
->>>>>>> 5de677f (MS RGB model)
 
                         cnn_image = np.expand_dims(cnn_image, axis=0)
                         # Predict
@@ -205,9 +198,7 @@ def postcode_to_area(postcode, height, width):
 
     north, _ = new_coordinates(location["lat"], location["lng"], height / 2, 0)
     _, east = new_coordinates(location["lat"], location["lng"], width / 2, 90)
-    south, _ = new_coordinates(
-        location["lat"], location["lng"], height / 2, 180
-    )
+    south, _ = new_coordinates(location["lat"], location["lng"], height / 2, 180)
     _, west = new_coordinates(location["lat"], location["lng"], width / 2, 270)
 
     return north, south, east, west
@@ -271,9 +262,7 @@ def combine_dataset(location, height, width, start_year, end_year):
                 maxVal = 2750
 
                 # Convert to Grayscale
-                weights = xr.DataArray(
-                    [0.2989, 0.5870, 0.1140], dims=["bands"]
-                )
+                weights = xr.DataArray([0.2989, 0.5870, 0.1140], dims=["bands"])
                 grayscale = (data[{"t": i}] * weights).sum(dim="bands")
 
                 # (SAME CODE AS CLOUD FUNCTION JUST INPUT IN DIFFERENT FORMAT AND PLOTTING IMAGES HERE)
@@ -298,10 +287,7 @@ def combine_dataset(location, height, width, start_year, end_year):
                 #     continue
 
                 # If any in shadow don't include:
-                if (
-                    np.sum(hist_values[0:5])
-                    > data.shape[-2] * data.shape[-1] * 0.01
-                ):
+                if np.sum(hist_values[0:5]) > data.shape[-2] * data.shape[-1] * 0.01:
                     print("Too dark")
                     continue
 
@@ -314,9 +300,7 @@ def combine_dataset(location, height, width, start_year, end_year):
             print(f"Missing {year}")
 
     combined_data = xr.concat(datasets, dim="t")
-    file_path = (
-        f"./data/{location}_{height}x{width}_{start_year}to{end_year}.nc"
-    )
+    file_path = f"./data/{location}_{height}x{width}_{start_year}to{end_year}.nc"
     if file_path is not None:
         combined_data.to_netcdf(file_path)
         print(f"Combined: {file_path}")
@@ -324,18 +308,18 @@ def combine_dataset(location, height, width, start_year, end_year):
 
 # ---------------- Global Variables ---------------- #
 ALL_BANDS = [
-    "B01",
+    # "B01",
     "B02",
     "B03",
     "B04",
     "B05",
-    "B06",
-    "B07",
-    "B08",
-    "B8A",
-    "B09",
-    "B11",
-    "B12",
+    # "B06",
+    # "B07",
+    # "B08",
+    # "B8A",
+    # "B09",
+    # "B11",
+    # "B12",
 ]
 RGB_BANDS = ["B04", "B03", "B02"]
 # BAND_NORMALISATION_VALUES = {
@@ -369,18 +353,18 @@ RGB_BANDS = ["B04", "B03", "B02"]
 # }
 
 BAND_RESOLUTION = {
-    "B01": 16,  # 60, ## SHOULD BE 10
+    # "B01": 16,  # 60, ## SHOULD BE 10
     "B02": 64,  # 10,
     "B03": 64,  # 10,
     "B04": 64,  # 10,
     "B05": 32,  # 20,
-    "B06": 32,  # 20,
-    "B07": 32,  # 20,
-    "B08": 64,  # 10,
-    "B8A": 32,  # 20,
-    "B09": 16,  # 60, ## SHOULD BE 10
-    "B11": 32,  # 20,
-    "B12": 32,  # 20,
+    # "B06": 32,  # 20,
+    # "B07": 32,  # 20,
+    # "B08": 64,  # 10,
+    # "B8A": 32,  # 20,
+    # "B09": 16,  # 60, ## SHOULD BE 10
+    # "B11": 32,  # 20,
+    # "B12": 32,  # 20,
 }
 
 # RGB_BAND_NORMALISATION_VALUES = {
@@ -389,18 +373,18 @@ BAND_RESOLUTION = {
 #     "B04": (0.3398, 0.2037),
 # }
 BAND_NORMALISATION_VALUES = {
-    "B01": (0.0763954, 0.013842635),
+    # "B01": (0.0763954, 0.013842635),
     "B02": (0.4025, 0.1161),
     "B03": (0.3804, 0.1375),
     "B04": (0.3398, 0.2037),
     "B05": (0.049949486, 0.023617674),
-    "B06": (0.07207413, 0.030981975),
-    "B07": (0.084782995, 0.038819022),
-    "B08": (0.08217743, 0.039935715),
-    "B8A": (0.047593687, 0.026250929),
-    "B09": (0.06611737, 0.025843639),
-    "B11": (0.050346848, 0.034246925),
-    "B12": (0.092849344, 0.04398858),
+    # "B06": (0.07207413, 0.030981975),
+    # "B07": (0.084782995, 0.038819022),
+    # "B08": (0.08217743, 0.039935715),
+    # "B8A": (0.047593687, 0.026250929),
+    # "B09": (0.06611737, 0.025843639),
+    # "B11": (0.050346848, 0.034246925),
+    # "B12": (0.092849344, 0.04398858),
 }
 
 
