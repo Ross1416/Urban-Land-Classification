@@ -123,6 +123,15 @@ X_train, X_test, y_train, y_test = train_test_split(
     data, y, test_size=0.2, random_state=1, stratify=labels
 )
 
+print(X_train.shape)
+print(X_test.shape)
+print(y_train.shape)
+print(y_test.shape)
+
+X_val, X_test, y_val, y_test = train_test_split(
+    X_test, y_test, test_size=0.5, random_state=1  # , stratify=labels
+)
+
 # Learning Rate Scheduler
 lr_scheduler = ReduceLROnPlateau(
     monitor="val_loss", factor=0.5, patience=5, verbose=1, min_lr=1e-6
@@ -185,7 +194,7 @@ history = model.fit(
     epochs=number_epoch,
     batch_size=batch_length,
     verbose=show_inter_results,
-    validation_data=(X_test, y_test),
+    validation_data=(X_val, y_val),
     callbacks=[lr_scheduler, early_stopping],
 )
 
