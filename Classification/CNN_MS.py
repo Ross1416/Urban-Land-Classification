@@ -59,10 +59,10 @@ use_l1, use_l2 = True, True
 l1_reg, l2_reg = 0.0002, 0.001
 
 # Define Data Path
-# data_dir = "C:/Users/Chris/Desktop/EuroSAT/EuroSAT_MS"
-data_dir = "../../../data/EuroSATallBands/"
+data_dir = "C:/Users/Chris/Desktop/EuroSAT/EuroSAT_MS"
+# data_dir = "../../../data/EuroSATallBands/"
 band_stats_path = "band_statistics.csv"
-max_images_per_class = 2000  # Limit dataset size
+max_images_per_class = 2500  # Limit dataset size
 
 
 # Measure data loading time
@@ -77,24 +77,53 @@ for class_name in class_names:
     class_path = os.path.join(data_dir, class_name)
     if os.path.isdir(class_path):
         img_files = os.listdir(class_path)
+        print(f"Loading {len(img_files)} images for class '{class_name}'...")
+        for img_file in img_files:
+            img_path = os.path.join(class_path, img_file)
+            try:
+                with rasterio.open(img_path) as img:
+                    image_array = img.read()
+                    image_array = np.delete(image_array, [10], axis=0)
+                    image_array = np.transpose(
+                        image_array, (1, 2, 0)
+                    )  # (H, W, C)
+                image_array = tf.image.resize(
+                    image_array, (num_rows, num_cols)
+                ).numpy()
+                image_array = np.clip(image_array, 0, 5000)
+                data.append(image_array)
+                labels.append(class_name)
+            except Exception as e:
+                print(f"Could not process image {img_path}: {e}")
+"""
+for class_name in class_names:
+    class_path = os.path.join(data_dir, class_name)
+    if os.path.isdir(class_path):
+        img_files = os.listdir(class_path)
         selected_files = random.sample(
             img_files, min(len(img_files), max_images_per_class)
         )
-        print(f"Loading {len(selected_files)} images for class '{class_name}'...")
+        print(
+            f"Loading {len(selected_files)} images for class '{class_name}'..."
+        )
         for img_file in selected_files:
             img_path = os.path.join(class_path, img_file)
             try:
                 with rasterio.open(img_path) as img:
                     image_array = img.read()
                     image_array = np.delete(image_array, [10], axis=0)
-                    image_array = np.transpose(image_array, (1, 2, 0))  # (H, W, C)
-                image_array = tf.image.resize(image_array, (num_rows, num_cols)).numpy()
+                    image_array = np.transpose(
+                        image_array, (1, 2, 0)
+                    )  # (H, W, C)
+                image_array = tf.image.resize(
+                    image_array, (num_rows, num_cols)
+                ).numpy()
                 image_array = np.clip(image_array, 0, 5000)
                 data.append(image_array)
                 labels.append(class_name)
             except Exception as e:
                 print(f"Could not process image {img_path}: {e}")
-
+"""
 print("Finished loading images.")
 
 # Convert to numpy arrays
@@ -205,7 +234,7 @@ print(f"Training completed in {training_time:.2f} seconds.")
 
 # Save Model
 print("Saving the trained model...")
-model.save("eurosat_ms.keras")
+model.save("eurosat_ms_x.keras")
 print("Model saved successfully.")
 
 # Evaluate Model
