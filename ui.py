@@ -374,7 +374,6 @@ class App(QMainWindow):
             rgb_image.append(normalise_band_rgb(band))
 
         # Convert to RGB format and scale from [0,1] to [0,255]
-        rgb_image.reverse()
         rgb_image = np.dstack(rgb_image)
         rgb_image = np.multiply(rgb_image, 255).astype("uint8")
         height, width, channel = rgb_image.shape

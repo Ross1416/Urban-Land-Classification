@@ -13,7 +13,7 @@ import matplotlib
 matplotlib.use("agg")
 
 
-def normalise_band_rgb(band, mean, std):
+def normalise_band_rgb(band):
     band = np.nan_to_num(band, nan=0)
     band = np.clip(band, 0, 2750)
     band /= 2750
@@ -35,7 +35,7 @@ def check_cloud(red, green, blue, width, height):
 
     hist_values, bin_edges = np.histogram(gray, bins=255, range=(0, 255))
 
-    if np.sum(hist_values[180:254]) > width * height * 0.08:
+    if np.sum(hist_values[220:254]) > width * height * 0.08:
         print("Cloud")
         return 1
 
