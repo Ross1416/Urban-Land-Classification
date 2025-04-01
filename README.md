@@ -9,7 +9,7 @@ Also contains code to run a GUI to classify Sentinel 2 data and display it with 
 The required python libraries can be installed by running:
 ```bash
 pip install -r requirements.txt
-
+```
 
 The ui tool can be loaded:
 ```bash
