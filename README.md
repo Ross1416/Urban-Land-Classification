@@ -14,3 +14,5 @@ pip install -r requirements.txt
 The ui tool can be loaded:
 ```bash
 python ui.py
+
+Note that the OpenCage Geocoder API key has since been disabled and therefore no new data can be downloaded without a new key. 
